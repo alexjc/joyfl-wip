@@ -1,0 +1,114 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+# joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
+#
+
+MODULE stdlib
+
+PUBLIC
+
+(*
+ *  Arithmetic
+ *)
+
+    pred            ==  1 - ;
+    --              ==  1 - ;
+    succ            ==  1 + ;
+    ++              ==  1 + ;
+
+
+(*
+ *  Stack Manipulation
+ *)
+
+    popd            ==  [pop] dip ;
+    swapd           ==  [swap] dip ;
+
+    rollup          ==  swap [swap] dip ;
+    rolldown        ==  [swap] dip swap ;
+
+
+(*
+ *  Data Structures
+ *)
+    pair            ==  [] cons cons ;
+    unpair          ==  uncons uncons pop ;
+
+    swons           ==  swap cons ;
+    swoncat         ==  swap concat ;
+    swappend        ==  swap append ;
+
+
+(*
+ *  Function Calling
+ *)
+
+    x               ==  dup i ;
+
+    dupd            ==  [dup] dip ;
+    dipd            ==  [dip] cons dip ;
+
+    app1            ==  i ; 
+    app2            ==  dup [dip] dip i ;
+
+
+(*
+ *  Control Flow
+ *)
+
+    choice          ==  swap pair index ;
+    branch          ==  choice i ;
+    nullary         ==  stack swap dip rest cons unstack ;
+    ifte            ==  [nullary] dipd branch ;
+
+    branch-cons     ==  [swap cons] [swapd swap cons swap] branch;
+    branch-append   ==  [swap append] [swapd swap append swap] branch;
+
+
+(*
+ *  Recursion
+ *)
+
+    cons4           ==  cons cons cons cons ;
+    linrec          ==  [linrec] cons4
+                        dup
+                        uncons swapd
+                        uncons swapd
+                        uncons [swap concat] dip
+                        uncons pop concat
+                        ifte ;
+
+    tailrec         ==  [] linrec ;
+
+
+(*
+ *  Algorithms
+ *)
+    cond            ==  [ small ]                                       # terminate recursion when single item list present
+                        [ i ]                                           # if so, then we just execute it to unquote
+                        [
+                            dup first                                   # copy the cases, extract the first
+                            dup first i                                 # copy first case, execute the predicate
+                            [ rest swap pop ]                           #   success: from this case, extract body, remove original list
+                            [ rest ]                                    #   failure: discard case from stack, remove it from list too
+                            choice i                                    # decide which branch to take based on predicate result
+                        ]
+                        tailrec ;
+
+    foldl           ==  swapd                                           # get the ACCUMULATOR, VALUES in order on the stack
+                        [dup first swapd] swoncat [swap rest] concat    # assemble a dynamic list of instructions for each step
+                        [null] swap [pop] swap                          # reorder parameters for tailrec's benefit
+                        tailrec ;
+
+    map             ==  [] rollup                                       # make a new ACCUMULATOR, and order it before VALUES
+                        [dup first] swoncat                             # assemble a dynamic list of instructions for each step
+                        [swap [swappend] dip rest] concat               # -> [dup first PREDICATES swap [swappend] dip rest]
+                        [null] swap [pop] swap                          # reorder parameters based on tailrec's specification
+                        tailrec ;                                       # recurse and discard empty list
+
+    split           ==  [[] []] dipd
+                        [dup first dup] swoncat [rolldown [branch-append] dip rest] concat
+                        [null] swap [pop swap] swap
+                        tailrec ;
+
+END.
