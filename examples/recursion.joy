@@ -1,0 +1,81 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+# Algorithm implementations that rely on recursion combinators.
+#
+# See this tutorial for more details and inspiration:
+#   https://hypercubed.github.io/joy/html/j05cmp.html
+#
+
+DEFINE
+    r-factorial     ==  [0 =]  [pop 1] [dup 1 - r-factorial *] ifte ;
+    a-factorial     ==  [null] [succ]  [dup pred [a-factorial] app1 *] ifte ;
+
+    i-factorial     ==  [   [pop 0 =]                       # This 4-line block computes the actual factorial.
+                            [pop pop 1]
+                            [[dup 1 -] dip i *]
+                            ifte
+                        ]
+                        [dup cons] swap concat dup cons     # This part assembles a recursive program.
+                        i ;
+
+    l-factorial     ==  [null ] [succ] [dup pred] [*] linrec ;
+
+    x-factorial     ==  [   [ pop null ]
+                            [ pop pop 1]
+                            [ [dup pred] dip x *]
+                            ifte ]
+                        x ;
+END.
+
+16 r-factorial
+    20922789888000 equal assert.
+
+16 a-factorial
+    20922789888000 equal assert.
+
+16 i-factorial
+    20922789888000 equal assert.
+
+16 l-factorial
+    20922789888000 equal assert.
+
+16 x-factorial
+    20922789888000 equal assert.
+
+"Tested `factorial` variants r- a- i- l- x-... OK" put.
+
+
+DEFINE
+    r-fib1          ==  [small] [] [pred dup [r-fib1] dip pred r-fib1 +] ifte ;
+    r-fib2          ==  [small] [] [pred dup pred [r-fib2] app2 +] ifte ;
+END.
+
+8 r-fib1
+    21 equal assert.
+
+8 r-fib2
+    21 equal assert.
+
+"Tested `r-fib1` and `r-fib2`... OK" put.
+
+
+DEFINE
+    r-mcc91         ==  [ 100 > ]
+                        [ 10 - ]
+                        [ 11 + r-mcc91 r-mcc91 ]
+                        ifte ;
+
+    l-mcc91         ==  [ 100 > ]
+                        [ 10 - ]
+                        [ 11 + ]
+                        [ l-mcc91 ]
+                        linrec ;
+END.
+
+[ -7 42 99 100 101 102 345 ] [r-mcc91] map
+    [91 91 91 91 91 92 335] equal assert.
+
+[ -7 42 99 100 101 102 345 ] [l-mcc91] map
+    [91 91 91 91 91 92 335] equal assert.
+
+"Tested `r-mcc91` and `l-mcc91`... OK" put.
