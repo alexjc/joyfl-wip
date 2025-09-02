@@ -140,7 +140,7 @@ FUNCTIONS = {
         'rem': lambda t, h: (t[0], t[1] % h),
     # BOOLEAN LOGIC
     '=': lambda t, h: (t[0], t[1] == h),
-        'equal': lambda t, h: (t[0], t[1] == h),
+        'equal?': lambda t, h: (t[0], t[1] == h),
     '!=': lambda t, h: (t[0], t[1] != h),
     '>': lambda t, h: (t[0], t[1] > h),
     '>=': lambda t, h: (t[0], t[1] >= h),
@@ -151,9 +151,9 @@ FUNCTIONS = {
     'not': lambda t, h: (t, not h),
     'xor': lambda t, h: (t[0], t[1] ^ h),
     # DATA & INTROSPECTION
-    'null': lambda t, h: (t, (len(h) if isinstance(h, (list, str)) else h) == 0),
-    'small': lambda t, h: (t, (len(h) if isinstance(h, (list, str)) else h) < 2),
-    'sametype': lambda t, h: (t[0], type(t[1]) == type(h)),
+    'null?': lambda t, h: (t, (len(h) if isinstance(h, (list, str)) else h) == 0),
+    'small?': lambda t, h: (t, (len(h) if isinstance(h, (list, str)) else h) < 2),
+    'sametype?': lambda t, h: (t[0], type(t[1]) == type(h)),
     'integer?': lambda t, h: (t, isinstance(h, int)),
     'float?': lambda t, h: (t, isinstance(h, float)),
     'list?': lambda t, h: (t, isinstance(h, list)),

@@ -8,17 +8,24 @@ EXAMPLES
 
 You can run a simple REPL (read-eval-print loop) by typing: ``python3 joyfl.py repl``.  From there, try typing these statements:
 
-.. code-block:: factor
+.. code-block:: bash
 
+    # Take the number one, the number two, add them. Then the number three and add it to the
+    # previous result. Is six equal to that?
     1 2 + 3 +
-        6 equals? .
-    > true
+        6 equal? .
+    >>> true
 
+    # Take the list of numbers seven eight nine. Take a program that subtracts one. Map the
+    # program onto the list, then reverse it.
     [7 8 9] [1 -] map reverse .
-    > [8 7 6]
+    >>> [8 7 6]
 
+    # Take a list of symbols 'a 'b 'c. Take the symbol 'd. Swap the symbol with the list. Get
+    # the "rest" of the list omitting the first item. Construct a new list with "cons" that
+    # uses 'd as the new head.
     ['a 'b 'c] 'd swap rest cons .
-    > ['d 'b 'c]
+    >>> ['d 'b 'c]
 
 Also look at the ``#/examples/`` folder and run them with ``python3 joyfl.py <filename>``.
 
