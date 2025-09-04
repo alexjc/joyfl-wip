@@ -21,11 +21,11 @@ PUBLIC
  *  Stack Manipulation
  *)
 
-    popd            ==  [pop] dip ;
-    swapd           ==  [swap] dip ;
+    popd            ==  [pop] :dip ;
+    swapd           ==  [swap] :dip ;
 
-    rollup          ==  swap [swap] dip ;
-    rolldown        ==  [swap] dip swap ;
+    rollup          ==  swap [swap] :dip ;
+    rolldown        ==  [swap] :dip swap ;
 
 
 (*
@@ -45,11 +45,11 @@ PUBLIC
 
     x               ==  dup i ;
 
-    dupd            ==  [dup] dip ;
+    dupd            ==  [dup] :dip ;
     dipd            ==  [dip] cons dip ;
 
     app1            ==  i ; 
-    app2            ==  dup [dip] dip i ;
+    app2            ==  dup [dip] :dip i ;
 
 
 (*
@@ -59,10 +59,10 @@ PUBLIC
     choice          ==  swap pair index ;
     branch          ==  choice i ;
     nullary         ==  stack swap dip rest cons unstack ;
-    ifte            ==  [nullary] dipd branch ;
+    ifte            ==  [nullary] dipd :branch ;
 
-    branch-cons     ==  [swap cons] [swapd swap cons swap] branch;
-    branch-append   ==  [swap append] [swapd swap append swap] branch;
+    branch-cons     ==  [swap cons] [swapd swap cons swap] :branch;
+    branch-append   ==  [swap append] [swapd swap append swap] :branch;
 
 
 (*
@@ -74,40 +74,40 @@ PUBLIC
                         dup
                         uncons swapd
                         uncons swapd
-                        uncons [swap concat] dip
+                        uncons [swap concat] :dip
                         uncons pop concat
                         ifte ;
 
-    tailrec         ==  [] linrec ;
+    tailrec         ==  [] :linrec ;
 
 
 (*
  *  Algorithms
  *)
-    cond            ==  [ small? ]                                       # terminate recursion when single item list present
+    cond            ==  [ small? ]                                      # terminate recursion when single item list present
                         [ i ]                                           # if so, then we just execute it to unquote
                         [
                             dup first                                   # copy the cases, extract the first
                             dup first i                                 # copy first case, execute the predicate
                             [ rest swap pop ]                           #   success: from this case, extract body, remove original list
                             [ rest ]                                    #   failure: discard case from stack, remove it from list too
-                            choice i                                    # decide which branch to take based on predicate result
+                            :branch                                     # decide which branch to take based on predicate result
                         ]
-                        tailrec ;
+                        :tailrec ;
 
     foldl           ==  swapd                                           # get the ACCUMULATOR, VALUES in order on the stack
                         [dup first swapd] swoncat [swap rest] concat    # assemble a dynamic list of instructions for each step
-                        [null?] swap [pop] swap                          # reorder parameters for tailrec's benefit
+                        [null?] swap [pop] swap                         # reorder parameters for tailrec's benefit
                         tailrec ;
 
     map             ==  [] rollup                                       # make a new ACCUMULATOR, and order it before VALUES
                         [dup first] swoncat                             # assemble a dynamic list of instructions for each step
-                        [swap [swappend] dip rest] concat               # -> [dup first PREDICATES swap [swappend] dip rest]
-                        [null?] swap [pop] swap                          # reorder parameters based on tailrec's specification
-                        tailrec ;                                       # recurse and discard empty list
+                        [swap [swappend] :dip rest] concat              # -> [dup first PREDICATES swap [swappend] dip rest]
+                        [null?] swap [pop] swap                         # reorder parameters based on tailrec's specification
+                        tailrec ;                                      # recurse and discard empty list
 
-    split           ==  [[] []] dipd
-                        [dup first dup] swoncat [rolldown [branch-append] dip rest] concat
+    split           ==  [[] []] :dipd
+                        [dup first dup] swoncat [rolldown [branch-append] :dip rest] concat
                         [null?] swap [pop swap] swap
                         tailrec ;
 

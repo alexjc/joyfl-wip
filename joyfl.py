@@ -88,7 +88,7 @@ def comb_dip(_, queue, *stack, library={}):
 
     return tail
 
-def comb_step(self: Operation, queue, *stack, library={}):
+def comb_step(this: Operation, queue, *stack, library={}):
     """Applies a program to every item in a list in a recursive fashion.  `step` expands into another
     quotation that includes itself to run on the rest of the list, after the program was applied to the
     head of the list.
@@ -96,10 +96,10 @@ def comb_step(self: Operation, queue, *stack, library={}):
     (tail, values), program = stack
     assert isinstance(program, list) and isinstance(values, list)
     if len(values) == 0: return tail
-    queue.extendleft(reversed([values[0]] + program + [values[1:], program, self]))
+    queue.extendleft(reversed([values[0]] + program + [values[1:], program, this]))
     return tail
 
-def comb_cont(self: Operation, queue, *stack, library={}):
+def comb_cont(this: Operation, queue, *stack, library={}):
     print(f"\033[97m  ~ :\033[0m  ", end=''); show_stack(stack, width=72, end='')
     try:
         program = []
@@ -114,7 +114,7 @@ def comb_cont(self: Operation, queue, *stack, library={}):
         print("\033[0 q", end='')
 
     if program:
-        queue[0:0] = program + [self]
+        queue.extendleft(reversed(program + [this]))
     return stack
 
 
@@ -301,6 +301,8 @@ def compile_body(tokens: list, library={}, meta={}):
     output, meta = [], {'filename': meta['filename'], 'start': meta['lines'][0], 'finish': -1}
 
     for typ, token, mt in tokens:
+        token = token.lstrip(':')
+
         if meta['filename'] == mt['filename'] and 'lines' in mt:
             meta['start'] = min(meta['start'], mt['lines'][0])
             meta['finish'] = max(meta['finish'], mt['lines'][1])
@@ -427,7 +429,7 @@ def main(files: tuple, verbose: int, ignore: bool):
             if r is not None: continue
         except NameError as exc:
             if hasattr(exc, 'token'):
-                print(f'\033[30;43m LINKER ERROR. \033[0m Term `\033[1;97m97m{exc.token}\033[0m` from `\033[97m{file_path}\033[0m` was not found in library! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
+                print(f'\033[30;43m LINKER ERROR. \033[0m Term `\033[1;97m{exc.token}\033[0m` from `\033[97m{file_path}\033[0m` was not found in library! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
         except lark.exceptions.ParseError as exc:
                 print(f'\033[30;43m SYNTAX ERROR. \033[0m Parsing `\033[97m{file_path}\033[0m` caused a problem! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
                 print(exc)
