@@ -5,6 +5,7 @@
 
 import math
 import readline
+import collections
 
 import click
 
@@ -70,7 +71,7 @@ def EXEC(x):
 def comb_i(queue, tail, head, library={}):
     """Takes a program as quotation on the top of the stack, and puts it into the queue for execution."""
     assert isinstance(head, list)
-    queue[0:0] = head
+    queue.extendleft(reversed(head))
     return tail
 
 def comb_dip(queue, *stack, library={}):
@@ -79,7 +80,9 @@ def comb_dip(queue, *stack, library={}):
     """
     ((tail, item), head) = stack
     assert isinstance(head, list)
-    queue[0:0] = head + [item]
+    queue.appendleft(item)
+    queue.extendleft(reversed(head))
+
     return tail
 
 def comb_step(queue, *stack, library={}):
@@ -90,7 +93,7 @@ def comb_step(queue, *stack, library={}):
     (tail, values), program = stack
     assert isinstance(program, list) and isinstance(values, list)
     if len(values) == 0: return tail
-    queue[0:0] = [values[0]] + program + [values[1:], program, COMB('step')]
+    queue.extendleft(reversed([values[0]] + program + [values[1:], program, COMB('step')]))
     return tail
 
 def comb_cont(queue, *stack, library={}):
@@ -306,6 +309,8 @@ def compile_body(tokens: list, library={}):
 
 def interpret(program: list, stack=None, library={}, verbosity=0):
     stack = tuple() if stack is None else stack
+    program = collections.deque(program)
+
     def is_notable(op):
         if not isinstance(op, Operation): return False
         return isinstance(op.ptr, list) or op.type == Operation.COMBINATOR
@@ -317,7 +322,7 @@ def interpret(program: list, stack=None, library={}, verbosity=0):
             show_program_and_stack(program, stack)
 
         step += 1
-        op = program.pop(0)
+        op = program.popleft()
         if isinstance(op, bytes) and op in (b'ABORT', b'BREAK'):
             print(f"\033[97m  ~ :\033[0m  ", end=''); show_program_and_stack(program, stack)
             if op == b'ABORT': import sys; sys.exit(-1)
@@ -339,7 +344,7 @@ def interpret(program: list, stack=None, library={}, verbosity=0):
                 stack = op.ptr(program, *stack, library=library)
             case Operation.EXECUTE:
                 prg = op.ptr if op.ptr is not None else library[op.name]
-                program[0:0] = prg
+                program.extendleft(reversed(prg))
 
     if verbosity > 0:
         print(f"\033[90m{step:>3} :\033[0m  ", end='')
