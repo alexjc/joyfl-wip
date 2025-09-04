@@ -1,0 +1,26 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+# Algorithm implementations that rely on iteration combinators.
+#
+
+DEFINE
+    greater-than-squared?   ==  dup dup * rolldown dup rolldown > ;
+    remainder-above-zero?   ==  dupd dup rollup rem 0 > ;
+
+    prime?                  ==  2                                           # accumulator integer to count upwards
+                                [   greater-than-squared?                   # checks square acc against number
+                                    [remainder-above-zero?] :dip            # also check remainder not zero
+                                    and swapd                               # boolean and
+                                ]                                           # condition block for while
+                                [succ]                                      # program block for while, increment acc
+                                :while
+                                dup * < ;                                   # final check to see why loop exited
+END.
+
+2147483647 prime? assert! .
+2147117569 prime? not assert! .
+
+# 727023333331 prime? assert! .
+# 755190546289 prime? not assert! .
+
+"Tested `prime?` and `prime? not`... OK" put! .

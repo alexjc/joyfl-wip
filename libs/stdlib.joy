@@ -69,6 +69,11 @@ PUBLIC
  *  Recursion
  *)
 
+    while           ==  [dup dip swap] :dip swap                            # execute a copy of the condition
+                        [dup [dip] :dip while]                              # execute the program and recurse
+                        [pop pop]                                           # cleanup the stack once done
+                        :branch ;                                           # check condition flag, pick right option
+
     cons4           ==  cons cons cons cons ;
     linrec          ==  [linrec] cons4
                         dup
@@ -86,8 +91,7 @@ PUBLIC
  *)
     cond            ==  [ small? ]                                      # terminate recursion when single item list present
                         [ i ]                                           # if so, then we just execute it to unquote
-                        [
-                            dup first                                   # copy the cases, extract the first
+                        [   dup first                                   # copy the cases, extract the first
                             dup first i                                 # copy first case, execute the predicate
                             [ rest swap pop ]                           #   success: from this case, extract body, remove original list
                             [ rest ]                                    #   failure: discard case from stack, remove it from list too
