@@ -371,7 +371,7 @@ def interpret(program: list, stack=None, library={}, verbosity=0):
                 try:
                     stack = op.ptr(*stack)
                 except Exception as exc:
-                    print(f'\033[30;43mRUNTIME ERROR.\033[0m Function \033[1;97m`{op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
+                    print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
                     tb_lines = traceback.format_exc().split('\n')
                     print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n')
                     print_source_lines(op, library)
@@ -427,12 +427,12 @@ def main(files: tuple, verbose: int, ignore: bool):
             if r is not None: continue
         except NameError as exc:
             if hasattr(exc, 'token'):
-                print(f'\033[30;43mLINKING ERROR.\033[0m Term `\033[97m{exc.token}\033[0m` from `\033[97m{file_path}\033[0m` was not found in library! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
+                print(f'\033[30;43m LINKER ERROR. \033[0m Term `\033[1;97m97m{exc.token}\033[0m` from `\033[97m{file_path}\033[0m` was not found in library! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
         except lark.exceptions.ParseError as exc:
-                print(f'\033[30;43mSYNTAX ERROR.\033[0m Parsing `\033[97m{file_path}\033[0m` caused a problem! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
+                print(f'\033[30;43m SYNTAX ERROR. \033[0m Parsing `\033[97m{file_path}\033[0m` caused a problem! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
                 print(exc)
         except Exception as exc:
-            print(f'\033[30;43mUNKNOWN ERROR.\033[0m File `\033[97m{file_path}\033[0m` failed during execution! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
+            print(f'\033[30;43m UNKNOWN ERROR. \033[0m File `\033[97m{file_path}\033[0m` failed during execution! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
             traceback.print_exc()
         if not ignore: break
 
@@ -455,7 +455,7 @@ def main(files: tuple, verbose: int, ignore: bool):
                 except lark.exceptions.ParseError as exc:
                     if "Unexpected token Token('$END', '')" in str(exc):
                         continue
-                    print(f'\033[30;43mSYNTAX ERROR.\033[0m Input caused a problem in the parser! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
+                    print(f'\033[30;43m SYNTAX  \033[0m Input caused a problem in the parser! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
                     source = ""
 
             except (KeyboardInterrupt, EOFError):
