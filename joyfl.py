@@ -336,10 +336,13 @@ def interpret(program: list, stack=None, library={}, verbosity=0):
             case Operation.FUNCTION:
                 try:
                     stack = op.ptr(*stack)
-                except:
-                    print(f'EXCEPTION: Function {op} caused an error in interpreter.'); show_program_and_stack(program, stack); print()
-                    import traceback; traceback.print_exc(limit=2)
-                    raise
+                except Exception as exc:
+                    print(f'\033[30;43mRUNTIME ERROR.\033[0m Function `\033[97m{op}\033[0m` caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
+                    import traceback
+                    tb_lines = traceback.format_exc().split('\n')
+                    print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n\n')
+
+                    return False
             case Operation.COMBINATOR:
                 stack = op.ptr(program, *stack, library=library)
             case Operation.EXECUTE:
@@ -365,13 +368,13 @@ def execute(source: str, globals_={}, verbosity=0):
         if typ == 'term':
             prg = compile_body(data, library=locals_)
             out = interpret(prg, library=locals_, verbosity=verbosity)
+            if out is False: return None, {}
         elif typ == 'library':
             for name, tokens in data['public']:
                 locals_[name] = None
                 prg = compile_body([(t.type, t.value) for t in tokens], library=locals_)
                 locals_[name] = _link_body(prg)
             out = tuple()
-
     return out, locals_
 
 
@@ -388,13 +391,16 @@ def main(files: tuple, verbose: int, ignore: bool):
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 source = f.read()
-            execute(source, globals_=globals_, verbosity=verbose)
-            continue
-        except NameError as e:
-            if hasattr(e, 'token') and e.token not in r'{}':
-                print(f"NameError: term not found `{e.token}`.")
-        except Exception as e:
-            print(f'Exception in {file_path}!')
+            r, _ = execute(source, globals_=globals_, verbosity=verbose)
+            if r is not None: continue
+        except NameError as exc:
+            if hasattr(exc, 'token'):
+                print(f'\033[30;43mLINKING ERROR.\033[0m Term `\033[97m{exc.token}\033[0m` from `\033[97m{file_path}\033[0m` was not found in library! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
+        except lark.exceptions.ParseError as exc:
+                print(f'\033[30;43mSYNTAX ERROR.\033[0m Parsing `\033[97m{file_path}\033[0m` caused a problem! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
+                print(exc)
+        except Exception as exc:
+            print(f'\033[30;43mUNKNOWN ERROR.\033[0m File `\033[97m{file_path}\033[0m` failed during execution! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
             import traceback; traceback.print_exc()
         if not ignore: break
 
@@ -417,7 +423,7 @@ def main(files: tuple, verbose: int, ignore: bool):
                 except lark.exceptions.ParseError as exc:
                     if "Unexpected token Token('$END', '')" in str(exc):
                         continue
-                    print('ERROR: Parser raised an exception:', exc)
+                    print(f'\033[30;43mSYNTAX ERROR.\033[0m Input caused a problem in the parser! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
                     source = ""
 
             except (KeyboardInterrupt, EOFError):
