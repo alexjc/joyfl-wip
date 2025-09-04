@@ -163,7 +163,7 @@ FUNCTIONS = {
     'string?': lambda t, h: (t, isinstance(h, str)),
     'boolean?': lambda t, h: (t, isinstance(h, bool)),
     # LIST MANIPULATION
-    'pop': lambda t, h: t,
+    'pop': lambda t, _: t,
     'dup': lambda t, h: ((t, h), h),
     'cons': lambda t, h: (t[0], [t[1]]+h),
     'append': lambda t, h: (t[0], h+[t[1]]),
@@ -177,8 +177,8 @@ FUNCTIONS = {
     # INPUT / OUTPUT
     'id': lambda *s: s,
     'put': lambda t, h: print(_format_item(h)) or t,
-    'assert': lambda _, h: _assert(h),
-    'raise': lambda _, h: _raise(h),
+    'assert': lambda t, h: _assert(h) or t,
+    'raise': lambda t, h: _raise(h) or t,
     # LIST OPERATIONS
     'concat': lambda t, h: (t[0], t[1] + h),
     'reverse': lambda t, h: (t, list(reversed(h))),
