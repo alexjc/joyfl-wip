@@ -179,9 +179,9 @@ FUNCTIONS = {
     'unstack': lambda _, h: list_to_stack(h),
     # INPUT / OUTPUT
     'id': lambda *s: s,
-    'put': lambda t, h: print(_format_item(h)) or t,
-    'assert': lambda t, h: _assert(h) or t,
-    'raise': lambda t, h: _raise(h) or t,
+    'put!': lambda t, h: print(_format_item(h)) or t,
+    'assert!': lambda t, h: _assert(h) or t,
+    'raise!': lambda t, h: _raise(h) or t,
     # LIST OPERATIONS
     'concat': lambda t, h: (t[0], t[1] + h),
     'reverse': lambda t, h: (t, list(reversed(h))),

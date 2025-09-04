@@ -28,21 +28,21 @@ DEFINE
 END.
 
 15 r-factorial
-    1307674368000 equal? assert.
+    1307674368000 equal? assert! .
 
 16 a-factorial
-    20922789888000 equal? assert.
+    20922789888000 equal? assert! .
 
 17 i-factorial
-    355687428096000 equal? assert.
+    355687428096000 equal? assert! .
 
 18 l-factorial
-    6402373705728000 equal? assert.
+    6402373705728000 equal? assert! .
 
 19 x-factorial
-    121645100408832000 equal? assert.
+    121645100408832000 equal? assert! .
 
-"Tested `factorial` variants r- a- i- l- x-... OK" put.
+"Tested `factorial` variations... OK" put! .
 
 
 DEFINE
@@ -51,12 +51,12 @@ DEFINE
 END.
 
 14 r-fib1
-    377 equal? assert.
+    377 equal? assert! .
 
 20 r-fib2
-    6765 equal? assert.
+    6765 equal? assert! .
 
-"Tested `r-fib1` and `r-fib2`... OK" put.
+"Tested `r-fib1` and `r-fib2`... OK" put! .
 
 
 DEFINE
@@ -73,9 +73,9 @@ DEFINE
 END.
 
 [ -7 42 99 100 101 102 345 ] [r-mcc91] map
-    [91 91 91 91 91 92 335] equal? assert.
+    [91 91 91 91 91 92 335] equal? assert! .
 
 [ -7 42 99 100 101 102 345 ] [l-mcc91] map
-    [91 91 91 91 91 92 335] equal? assert.
+    [91 91 91 91 91 92 335] equal? assert! .
 
-"Tested `r-mcc91` and `l-mcc91`... OK" put.
+"Tested `r-mcc91` and `l-mcc91`... OK" put! .
