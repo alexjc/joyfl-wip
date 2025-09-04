@@ -63,21 +63,21 @@ class Operation:
     def __repr__(self):
         return f"{self.name}"
 
-def FUNC(x):
-    return Operation(Operation.FUNCTION, FUNCTIONS[x], x)
-def COMB(x):
-    return Operation(Operation.COMBINATOR, COMBINATORS[x], x)
-def EXEC(x):
-    return Operation(Operation.EXECUTE, None, x)
+def FUNC(x, meta={}):
+    return Operation(Operation.FUNCTION, FUNCTIONS[x], x, meta)
+def COMB(x, meta={}):
+    return Operation(Operation.COMBINATOR, COMBINATORS[x], x, meta)
+def EXEC(x, prg, meta={}):
+    return Operation(Operation.EXECUTE, prg, x, meta)
 
 
-def comb_i(queue, tail, head, library={}):
+def comb_i(_, queue, tail, head, library={}):
     """Takes a program as quotation on the top of the stack, and puts it into the queue for execution."""
     assert isinstance(head, list)
     queue.extendleft(reversed(head))
     return tail
 
-def comb_dip(queue, *stack, library={}):
+def comb_dip(_, queue, *stack, library={}):
     """Schedules a program for execution like `i`, but removes the second top-most item from the stack too
     and then restores it after the program is done.  This is like running `i` one level lower in the stack.
     """
@@ -88,7 +88,7 @@ def comb_dip(queue, *stack, library={}):
 
     return tail
 
-def comb_step(queue, *stack, library={}):
+def comb_step(self: Operation, queue, *stack, library={}):
     """Applies a program to every item in a list in a recursive fashion.  `step` expands into another
     quotation that includes itself to run on the rest of the list, after the program was applied to the
     head of the list.
@@ -96,10 +96,10 @@ def comb_step(queue, *stack, library={}):
     (tail, values), program = stack
     assert isinstance(program, list) and isinstance(values, list)
     if len(values) == 0: return tail
-    queue.extendleft(reversed([values[0]] + program + [values[1:], program, COMB('step')]))
+    queue.extendleft(reversed([values[0]] + program + [values[1:], program, self]))
     return tail
 
-def comb_cont(queue, *stack, library={}):
+def comb_cont(self: Operation, queue, *stack, library={}):
     print(f"\033[97m  ~ :\033[0m  ", end=''); show_stack(stack, width=72, end='')
     try:
         program = []
@@ -114,7 +114,7 @@ def comb_cont(queue, *stack, library={}):
         print("\033[0 q", end='')
 
     if program:
-        queue[0:0] = program + [COMB(',,,')]
+        queue[0:0] = program + [self]
     return stack
 
 
@@ -313,15 +313,15 @@ def compile_body(tokens: list, library={}, meta={}):
             stack[-1][0].append(output)
             (stack, (output, meta)) = stack
         elif token in COMBINATORS:
-            output.append(Operation(Operation.COMBINATOR, COMBINATORS[token], token, mt))
+            output.append(COMB(token, mt))
         elif token in FUNCTIONS:
-            output.append(Operation(Operation.FUNCTION, FUNCTIONS[token], token, mt))
+            output.append(FUNC(token, mt))
         elif token in library:
             if isinstance(library[token], tuple):
                 prg, mt['body'] = library[token]
             else:
                 prg = library[token]
-            output.append(Operation(Operation.EXECUTE, prg, token, mt))
+            output.append(EXEC(token, prg, mt))
         elif token.startswith('"') and token.endswith('"'):
             output.append(str(token.strip('"')))
         elif token.startswith("'"):
@@ -377,10 +377,9 @@ def interpret(program: list, stack=None, library={}, verbosity=0):
                     print_source_lines(op, library)
                     return False
             case Operation.COMBINATOR:
-                stack = op.ptr(program, *stack, library=library)
+                stack = op.ptr(op, program, *stack, library=library)
             case Operation.EXECUTE:
-                prg = op.ptr if op.ptr is not None else library[op.name]
-                program.extendleft(reversed(prg))
+                program.extendleft(reversed(op.ptr))
 
     if verbosity > 0:
         print(f"\033[90m{step:>3} :\033[0m  ", end='')
