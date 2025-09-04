@@ -378,7 +378,8 @@ def execute(source: str, globals_={}, verbosity=0):
 @click.command()
 @click.argument('files', nargs=-1)
 @click.option('--verbose', '-v', default=0, count=True, help='Enable verbose interpreter execution.')
-def main(files: tuple, verbose: int):
+@click.option('--ignore', '-i', is_flag=True, help='Ignore errors if a file executed raises an exception.')
+def main(files: tuple, verbose: int, ignore: bool):
     _, globals_ = execute(open('libs/stdlib.joy', 'r', encoding='utf-8').read())
 
     # Execute each provided file one by one. They are not imported into the globals.
@@ -388,12 +389,14 @@ def main(files: tuple, verbose: int):
             with open(file_path, 'r', encoding='utf-8') as f:
                 source = f.read()
             execute(source, globals_=globals_, verbosity=verbose)
+            continue
         except NameError as e:
             if hasattr(e, 'token') and e.token not in r'{}':
                 print(f"NameError: term not found `{e.token}`.")
         except Exception as e:
             print(f'Exception in {file_path}!')
             import traceback; traceback.print_exc()
+        if not ignore: break
 
     if len(files) == 0 or files[0] == 'repl':
         print('joyfl - Functional stack language REPL; type Ctrl+C to exit.')
