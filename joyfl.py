@@ -4,7 +4,9 @@
 #
 
 import math
+import textwrap
 import readline
+import traceback
 import collections
 
 import click
@@ -49,10 +51,11 @@ class Operation:
     COMBINATOR = 2
     EXECUTE = 3
 
-    def __init__(self, type, ptr, name):
+    def __init__(self, type, ptr, name, meta={}):
         self.type = type
         self.ptr = ptr
         self.name = name
+        self.meta = meta
 
     def __eq__(self, other):
         return self.type == other.type and self.ptr == other.ptr
@@ -103,10 +106,10 @@ def comb_cont(queue, *stack, library={}):
         value = input("\033[4 q\033[36m  ...  \033[0m")
         if value.strip():
             for typ, data in parse(value, start='term'):
-                program = compile_body(data, library)
+                program, _ = compile_body(data, library)
     except Exception as e:
         print('EXCEPTION: comb_cont could not parse or compile the text.', e)
-        import traceback; traceback.print_exc(limit=2)
+        traceback.print_exc(limit=2)
     finally:
         print("\033[0 q", end='')
 
@@ -238,35 +241,34 @@ NAME: /[^\s\[\]\\(\){\}\;\.#][A-Za-z0-9!+\-=<>_,?]*/
 
 import lark
 
-def _flatten(node):
-    tokens = []
-    if isinstance(node, lark.Tree):
-        for child in node.children:
-            tokens.extend(_flatten(child))
-    elif node.type != 'SEPARATOR':
-        tokens.append(node)
-    return tokens
+def parse(source: str, start='start', filename=None):
+    parser = lark.Lark(GRAMMAR, start=start, parser="lalr", lexer="contextual", propagate_positions=True)
 
-def parse(source: str, start='start'):
-    parser = lark.Lark(GRAMMAR, start=start, parser="lalr", lexer="contextual")
+    def _flatten(node):
+        if isinstance(node, lark.Tree):
+            for child in node.children:
+                yield from _flatten(child)
+        elif node.type != 'SEPARATOR':
+            meta = {'filename': filename, 'lines': (node.line, node.end_line),
+                    'columns': (node.column, node.end_column)} if hasattr(node, 'line') else {}
+            yield (node.type, node.value, meta)
 
     def _traverse(it):
         if isinstance(it, lark.Token):
             if it.type not in ('DOT', 'END'):
-                yield 'term', [(it.type, it.value)]
+                yield 'term', [(it.type, it.value, {'filename': filename})]
             return
         assert isinstance(it, lark.Tree)
 
         if it.data == 'library':
-            sections = {"module": [], "private": [], "public": []}
+            sections = {"module": None, "private": [], "public": []}
             for ch in [c for c in it.children[:-1] if c not in ('END', '.')]:
                 key = ch.data.split('_', maxsplit=1)[0]
                 if key != 'module':
-                    sections[key] = [(toks[0], toks[2:]) for i in ch.children[0].children if (toks := _flatten(i))]
+                    sections[key] = [(toks[0], toks[2:]) for i in ch.children[0].children if (toks := list(_flatten(i)))]
             yield 'library', sections
         elif it.data == 'term':
-            flattened = _flatten(it)
-            yield 'term', [(token.type, token.value) for token in flattened]
+            yield 'term', list(_flatten(it))
         else:
             for ch in it.children:
                 yield from _traverse(ch)
@@ -274,37 +276,69 @@ def parse(source: str, start='start'):
     tree = parser.parse(source)
     yield from _traverse(tree)
 
-def compile_body(tokens: list, library={}):
-    output = (None, [])
-    for typ, token in tokens:
+def load_source_lines(meta, keyword, line):
+    source = open(meta['filename'], 'r').read()
+    lines = [l for l in source.split('\n')[meta['start']-1:meta['finish']]]
+    j = line - meta['start']
+    lines[j] = lines[j].replace(keyword, f"\033[48;5;30m\033[1;97m{keyword}\033[0m")
+    return '\n'.join(lines)
+
+def print_source_lines(op, library):
+    def _contained_in(k, prg):
+        if isinstance(prg, list): return any(_contained_in(k, p) for p in prg)
+        return id(op) == id(prg)
+
+    for k, (prog, meta) in library.items():
+        if not _contained_in(k, prog): continue
+        print(f"\033[97m  File \"{meta['filename']}\", lines {meta['start']}-{meta['finish']}, in {k}\033[0m")
+        lines = load_source_lines(meta, keyword=op.name, line=op.meta['start'])
+        print(textwrap.indent(textwrap.dedent(lines), prefix='    '), sep='\n', end='\n\n')
+        break
+
+
+def compile_body(tokens: list, library={}, meta={}):
+    stack = tuple()
+    output, meta = [], {'filename': meta['filename'], 'start': meta['lines'][0], 'finish': -1}
+
+    for typ, token, mt in tokens:
+        if meta['filename'] == mt['filename'] and 'lines' in mt:
+            meta['start'] = min(meta['start'], mt['lines'][0])
+            meta['finish'] = max(meta['finish'], mt['lines'][1])
+            mt['start'] = mt['lines'][0]; mt['finish'] = mt['lines'][1]; del mt['lines']
+
         if token == '[':
-            output = (output, [])
+            stack = (stack, (output, meta))
+            output, meta = [], mt
         elif token == ']':
-            output, head = output
-            output[-1].append(head)
+            stack[-1][0].append(output)
+            (stack, (output, meta)) = stack
         elif token in COMBINATORS:
-            output[-1].append(Operation(Operation.COMBINATOR, COMBINATORS[token], token))
+            output.append(Operation(Operation.COMBINATOR, COMBINATORS[token], token, mt))
         elif token in FUNCTIONS:
-            output[-1].append(Operation(Operation.FUNCTION, FUNCTIONS[token], token))
+            output.append(Operation(Operation.FUNCTION, FUNCTIONS[token], token, mt))
         elif token in library:
-            output[-1].append(Operation(Operation.EXECUTE, library[token], token))
+            if isinstance(library[token], tuple):
+                prg, mt['body'] = library[token]
+            else:
+                prg = library[token]
+            output.append(Operation(Operation.EXECUTE, prg, token, mt))
         elif token.startswith('"') and token.endswith('"'):
-            output[-1].append(str(token.strip('"')))
+            output.append(str(token.strip('"')))
         elif token.startswith("'"):
-            output[-1].append(bytes(token[1:], encoding='utf-8'))
+            output.append(bytes(token[1:], encoding='utf-8'))
         elif token.isdigit() or token[0] == '-' and token[1:].isdigit():
-            output[-1].append(int(token))
+            output.append(int(token))
         elif len(token) > 1 and token.count('.') == 1 and token.count('-') <= 1 and token.lstrip('-').replace('.', '').isdigit():
-            output[-1].append(float(token))
+            output.append(float(token))
         elif token in CONSTANTS:
-            output[-1].append(CONSTANTS[token])
+            output.append(CONSTANTS[token])
         else:
             exc = NameError(f"Unknown instruction `{token}`.")
             exc.token = token
             raise exc
 
-    assert output[-1] is not None
-    return output[-1]
+    assert len(stack) == 0
+    return output, meta
 
 
 def interpret(program: list, stack=None, library={}, verbosity=0):
@@ -337,11 +371,10 @@ def interpret(program: list, stack=None, library={}, verbosity=0):
                 try:
                     stack = op.ptr(*stack)
                 except Exception as exc:
-                    print(f'\033[30;43mRUNTIME ERROR.\033[0m Function `\033[97m{op}\033[0m` caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
-                    import traceback
+                    print(f'\033[30;43mRUNTIME ERROR.\033[0m Function \033[1;97m`{op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
                     tb_lines = traceback.format_exc().split('\n')
-                    print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n\n')
-
+                    print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n')
+                    print_source_lines(op, library)
                     return False
             case Operation.COMBINATOR:
                 stack = op.ptr(program, *stack, library=library)
@@ -356,7 +389,7 @@ def interpret(program: list, stack=None, library={}, verbosity=0):
     return stack
 
 
-def execute(source: str, globals_={}, verbosity=0):
+def execute(source: str, globals_={}, filename=None, verbosity=0):
     locals_ = globals_.copy()
     def _link_body(n):
         if isinstance(n, list): return [_link_body(t) for t in n]
@@ -364,16 +397,16 @@ def execute(source: str, globals_={}, verbosity=0):
         return n
 
     out = None
-    for typ, data in parse(source):
+    for typ, data in parse(source, filename=filename):
         if typ == 'term':
-            prg = compile_body(data, library=locals_)
+            prg, _ = compile_body(data, library=locals_, meta={'filename': filename, 'lines': (2^32, -1)})
             out = interpret(prg, library=locals_, verbosity=verbosity)
             if out is False: return None, {}
         elif typ == 'library':
             for name, tokens in data['public']:
-                locals_[name] = None
-                prg = compile_body([(t.type, t.value) for t in tokens], library=locals_)
-                locals_[name] = _link_body(prg)
+                locals_[name[1]] = None
+                prg, meta = compile_body(tokens, library=locals_, meta=name[2])
+                locals_[name[1]] = (_link_body(prg), meta)
             out = tuple()
     return out, locals_
 
@@ -383,7 +416,7 @@ def execute(source: str, globals_={}, verbosity=0):
 @click.option('--verbose', '-v', default=0, count=True, help='Enable verbose interpreter execution.')
 @click.option('--ignore', '-i', is_flag=True, help='Ignore errors if a file executed raises an exception.')
 def main(files: tuple, verbose: int, ignore: bool):
-    _, globals_ = execute(open('libs/stdlib.joy', 'r', encoding='utf-8').read())
+    _, globals_ = execute(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy')
 
     # Execute each provided file one by one. They are not imported into the globals.
     for file_path in files:
@@ -391,7 +424,7 @@ def main(files: tuple, verbose: int, ignore: bool):
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 source = f.read()
-            r, _ = execute(source, globals_=globals_, verbosity=verbose)
+            r, _ = execute(source, globals_=globals_, filename=file_path, verbosity=verbose)
             if r is not None: continue
         except NameError as exc:
             if hasattr(exc, 'token'):
@@ -401,7 +434,7 @@ def main(files: tuple, verbose: int, ignore: bool):
                 print(exc)
         except Exception as exc:
             print(f'\033[30;43mUNKNOWN ERROR.\033[0m File `\033[97m{file_path}\033[0m` failed during execution! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
-            import traceback; traceback.print_exc()
+            traceback.print_exc()
         if not ignore: break
 
     if len(files) == 0 or files[0] == 'repl':
