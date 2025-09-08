@@ -26,8 +26,21 @@ def list_to_stack(values, base=None):
     return stack
 
 
-def _format_item(it):
-    if isinstance(it, list): return '[' + ' '.join(_format_item(i) for i in it) + ']'
+def _format_item(it, width=None, indent=0):
+    if isinstance(it, list):
+        formatted_items = [_format_item(i, width, indent + 4) for i in it]
+        single_line = '[' + ' '.join(formatted_items) + ']'
+        # If it fits on one line, use single line format.
+        if width is None or len(single_line) + indent <= width:
+            return single_line
+        # Otherwise use multi-line format...
+        result = '[   '
+        for i, item in enumerate(formatted_items):
+            if i > 0: result += '\n' + (' ' * (indent + 4))
+            result += item
+        result += '\n' + (' ' * indent) + ']'
+        return result
+    
     if isinstance(it, bool): return str(it).lower()
     if isinstance(it, bytes): return str(it)[1:-1]
     return str(it)
@@ -179,7 +192,7 @@ FUNCTIONS = {
     'unstack': lambda _, h: list_to_stack(h),
     # INPUT / OUTPUT
     'id': lambda *s: s,
-    'put!': lambda t, h: print(_format_item(h)) or t,
+    'put!': lambda t, h: print('\033[97m' + _format_item(h, width=120) + '\033[0m') or t,
     'assert!': lambda t, h: _assert(h) or t,
     'raise!': lambda t, h: _raise(h) or t,
     # LIST OPERATIONS
