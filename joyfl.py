@@ -5,6 +5,7 @@
 
 import sys
 import math
+import time
 import textwrap
 import readline
 import traceback
@@ -357,7 +358,7 @@ def compile_body(tokens: list, library={}, meta={}):
     return output, meta
 
 
-def interpret(program: list, stack=None, library={}, verbosity=0):
+def interpret(program: list, stack=None, library={}, verbosity=0, stats=None):
     stack = tuple() if stack is None else stack
     program = collections.deque(program)
 
@@ -400,11 +401,13 @@ def interpret(program: list, stack=None, library={}, verbosity=0):
     if verbosity > 0:
         print(f"\033[90m{step:>3} :\033[0m  ", end='')
         show_program_and_stack(program, stack)
+    if stats is not None:
+        stats['steps'] = stats.get('steps', 0) + step
 
     return stack
 
 
-def execute(source: str, globals_={}, filename=None, verbosity=0):
+def execute(source: str, globals_={}, filename=None, verbosity=0, stats=None):
     locals_ = globals_.copy()
     def _link_body(n):
         if isinstance(n, list): return [_link_body(t) for t in n]
@@ -415,7 +418,7 @@ def execute(source: str, globals_={}, filename=None, verbosity=0):
     for typ, data in parse(source, filename=filename):
         if typ == 'term':
             prg, _ = compile_body(data, library=locals_, meta={'filename': filename, 'lines': (2^32, -1)})
-            out = interpret(prg, library=locals_, verbosity=verbosity)
+            out = interpret(prg, library=locals_, verbosity=verbosity, stats=stats)
             if out is False: return None, {}
         elif typ == 'library':
             for name, tokens in data['public']:
@@ -432,7 +435,8 @@ def execute(source: str, globals_={}, filename=None, verbosity=0):
 @click.option('--repl', is_flag=True, help='Start REPL after executing commands and files.')
 @click.option('--verbose', '-v', default=0, count=True, help='Enable verbose interpreter execution.')
 @click.option('--ignore', '-i', is_flag=True, help='Ignore errors and continue executing.')
-def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool):
+@click.option('--stats', is_flag=True, help='Display execution statistics (e.g., number of steps).')
+def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, stats: bool):
     
     def _fatal_error(message: str, detail: str, exc_type: str = None):
         """Print colored error message; exit with code 1 unless --ignore is set."""
@@ -446,25 +450,31 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool):
     items = [(cmd, f'<INPUT_{i+1}>') for i, cmd in enumerate(commands)]
     items += [(f.read(), f.name) for f in files]
 
+    total_stats = {'steps': 0, 'start': time.time()} if stats else None
     for source, filename in items:
         try:
-            r, _ = execute(source, globals_=globals_, filename=filename, verbosity=verbose)
-            if r is None:
-                _fatal_error("EXECUTION FAILED.", f"Source `\033[97m{filename}\033[0m` returned None")
-                
+            r, _ = execute(source, globals_=globals_, filename=filename, verbosity=verbose, stats=total_stats)
+
         except NameError as exc:
             if hasattr(exc, 'token'):
                 detail = f"Term `\033[1;97m{exc.token}\033[0m` from `\033[97m{filename}\033[0m` was not found in library!"
                 _fatal_error("LINKER ERROR.", detail, type(exc).__name__)
-                
+
         except lark.exceptions.ParseError as exc:
             detail = f"Parsing `\033[97m{filename}\033[0m` caused a problem!"
             _fatal_error("SYNTAX ERROR.", detail, type(exc).__name__)
-                
+
         except Exception as exc:
             tb = traceback.format_exc()
             detail = f"Source `\033[97m{filename}\033[0m` failed during execution!\n{tb}"
             _fatal_error("UNKNOWN ERROR.", detail)
+
+    # Display statistics if requested
+    if total_stats and len(items) > 0:
+        elapsed_time = time.time() - total_stats['start']
+        print(f"\n\033[97m\033[48;5;30m STATISTICS. \033[0m")
+        print(f"step\t\033[97m{total_stats['steps']:,}\033[0m")
+        print(f"time\t\033[97m{elapsed_time:.3f}s\033[0m")
 
     # Start REPL if no items were provided or --repl flag was set
     if len(items) == 0 or repl:
