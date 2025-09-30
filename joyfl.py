@@ -3,6 +3,7 @@
 # joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
 #
 
+import sys
 import math
 import textwrap
 import readline
@@ -374,7 +375,7 @@ def interpret(program: list, stack=None, library={}, verbosity=0):
         op = program.popleft()
         if isinstance(op, bytes) and op in (b'ABORT', b'BREAK'):
             print(f"\033[97m  ~ :\033[0m  ", end=''); show_program_and_stack(program, stack)
-            if op == b'ABORT': import sys; sys.exit(-1)
+            if op == b'ABORT': sys.exit(-1)
             if op == b'BREAK': input(); continue
 
         if not isinstance(op, Operation):
@@ -426,32 +427,47 @@ def execute(source: str, globals_={}, filename=None, verbosity=0):
 
 
 @click.command()
-@click.argument('files', nargs=-1)
+@click.argument('files', nargs=-1, type=click.File('r'))
+@click.option('--command', '-c', 'commands', multiple=True, type=str, help='Execute Joy code from command line.')
+@click.option('--repl', is_flag=True, help='Start REPL after executing commands and files.')
 @click.option('--verbose', '-v', default=0, count=True, help='Enable verbose interpreter execution.')
-@click.option('--ignore', '-i', is_flag=True, help='Ignore errors if a file executed raises an exception.')
-def main(files: tuple, verbose: int, ignore: bool):
+@click.option('--ignore', '-i', is_flag=True, help='Ignore errors and continue executing.')
+def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool):
+    
+    def _fatal_error(message: str, detail: str, exc_type: str = None):
+        """Print colored error message; exit with code 1 unless --ignore is set."""
+        if exc_type: detail += f" (Exception: \033[33m{exc_type}\033[0m)"
+        print(f'\033[30;43m {message} \033[0m {detail}\n')
+        if not ignore: sys.exit(1)
+    
     _, globals_ = execute(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy')
 
-    # Execute each provided file one by one. They are not imported into the globals.
-    for file_path in files:
-        if file_path == 'repl': continue
+    # Build execution list: commands first, then files
+    items = [(cmd, f'<INPUT_{i+1}>') for i, cmd in enumerate(commands)]
+    items += [(f.read(), f.name) for f in files]
+
+    for source, filename in items:
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                source = f.read()
-            r, _ = execute(source, globals_=globals_, filename=file_path, verbosity=verbose)
-            if r is not None: continue
+            r, _ = execute(source, globals_=globals_, filename=filename, verbosity=verbose)
+            if r is None:
+                _fatal_error("EXECUTION FAILED.", f"Source `\033[97m{filename}\033[0m` returned None")
+                
         except NameError as exc:
             if hasattr(exc, 'token'):
-                print(f'\033[30;43m LINKER ERROR. \033[0m Term `\033[1;97m{exc.token}\033[0m` from `\033[97m{file_path}\033[0m` was not found in library! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
+                detail = f"Term `\033[1;97m{exc.token}\033[0m` from `\033[97m{filename}\033[0m` was not found in library!"
+                _fatal_error("LINKER ERROR.", detail, type(exc).__name__)
+                
         except lark.exceptions.ParseError as exc:
-                print(f'\033[30;43m SYNTAX ERROR. \033[0m Parsing `\033[97m{file_path}\033[0m` caused a problem! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
-                print(exc)
+            detail = f"Parsing `\033[97m{filename}\033[0m` caused a problem!"
+            _fatal_error("SYNTAX ERROR.", detail, type(exc).__name__)
+                
         except Exception as exc:
-            print(f'\033[30;43m UNKNOWN ERROR. \033[0m File `\033[97m{file_path}\033[0m` failed during execution! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
-            traceback.print_exc()
-        if not ignore: break
+            tb = traceback.format_exc()
+            detail = f"Source `\033[97m{filename}\033[0m` failed during execution!\n{tb}"
+            _fatal_error("UNKNOWN ERROR.", detail)
 
-    if len(files) == 0 or files[0] == 'repl':
+    # Start REPL if no items were provided or --repl flag was set
+    if len(items) == 0 or repl:
         print('joyfl - Functional stack language REPL; type Ctrl+C to exit.')
         source = ""
 
