@@ -310,6 +310,26 @@ def print_source_lines(op, library):
         print(textwrap.indent(textwrap.dedent(lines), prefix='    '), sep='\n', end='\n\n')
         break
 
+def format_parse_error_context(filename, line, column, token_value):
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+    start_line, end_line = max(0, line - 3), min(len(lines), line + 2)
+    result = [f"\033[97m  File \"{filename}\", line {line}\033[0m"]
+
+    for i in range(start_line, end_line):
+        line_content = lines[i].rstrip('\n')
+        line_color = '\033[90m'
+        if i+1 == line:
+            line_color = '\033[97m'
+            if column > 0 and column <= len(line_content):
+                line_content = (
+                    line_content[:column-1] + 
+                    f"\033[48;5;30m\033[1;97m{line_content[column-1:column+len(token_value)-1]}\033[0m" +
+                    line_content[column+len(token_value)-1:]
+                )
+        result.append(f"{line_color}{i+1:>5} |\033[0m {line_content}")
+    return '\n' + '\n'.join(result) + '\n'
+
 
 def compile_body(tokens: list, library={}, meta={}):
     stack = tuple()
@@ -438,10 +458,9 @@ def execute(source: str, globals_={}, filename=None, verbosity=0, stats=None):
 @click.option('--stats', is_flag=True, help='Display execution statistics (e.g., number of steps).')
 def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, stats: bool):
     
-    def _fatal_error(message: str, detail: str, exc_type: str = None):
-        """Print colored error message; exit with code 1 unless --ignore is set."""
-        if exc_type: detail += f" (Exception: \033[33m{exc_type}\033[0m)"
-        print(f'\033[30;43m {message} \033[0m {detail}\n')
+    def _fatal_error(message: str, detail: str, exc_type: str = None, context: str = ''):
+        header = detail if not exc_type else f"{detail} (Exception: \033[33m{exc_type}\033[0m)"
+        print(f'\033[30;43m {message} \033[0m {header}\n{context}')
         if not ignore: sys.exit(1)
     
     _, globals_ = execute(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy')
@@ -461,8 +480,9 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, 
                 _fatal_error("LINKER ERROR.", detail, type(exc).__name__)
 
         except lark.exceptions.ParseError as exc:
-            detail = f"Parsing `\033[97m{filename}\033[0m` caused a problem!"
-            _fatal_error("SYNTAX ERROR.", detail, type(exc).__name__)
+            context = format_parse_error_context(filename, exc.line, exc.column, exc.token.value)
+            context += f"\n\033[90m{str(exc).replace(chr(10), ' ').replace(chr(9), ' ')}\033[0m\n"
+            _fatal_error("SYNTAX ERROR.", f"Parsing `\033[97m{filename}\033[0m` caused a problem!", type(exc).__name__, context=context)
 
         except Exception as exc:
             tb = traceback.format_exc()
