@@ -465,14 +465,14 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, 
     
     _, globals_ = execute(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy')
 
-    # Build execution list: commands first, then files
-    items = [(cmd, f'<INPUT_{i+1}>') for i, cmd in enumerate(commands)]
-    items += [(f.read(), f.name) for f in files]
+    # Build execution list: files first, then commands.
+    items = [(f.read(), f.name) for f in files]
+    items += [(cmd, f'<INPUT_{i+1}>') for i, cmd in enumerate(commands)]
 
     total_stats = {'steps': 0, 'start': time.time()} if stats else None
     for source, filename in items:
         try:
-            r, _ = execute(source, globals_=globals_, filename=filename, verbosity=verbose, stats=total_stats)
+            r, globals_ = execute(source, globals_=globals_, filename=filename, verbosity=verbose, stats=total_stats)
 
         except NameError as exc:
             if hasattr(exc, 'token'):
