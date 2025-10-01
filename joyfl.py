@@ -49,9 +49,9 @@ def _format_item(it, width=None, indent=0):
 
 def show_stack(stack, width=72, end='\n'):
     stack_str = ' '.join(_format_item(s) for s in reversed(stack_to_list(stack))) if stack else '∅'
-    if len(stack_str) > width:
+    if len(stack_str) > (width or sys.maxsize):
         stack_str = '… ' + stack_str[-width+2:]
-    print(f"{stack_str:>{width}}", end=end)
+    print(f"{stack_str:>{width}}" if width else stack_str, end=end)
 
 def show_program_and_stack(program, stack, width=72):
     prog_str = ' '.join(_format_item(p) for p in program) if program else '∅'
