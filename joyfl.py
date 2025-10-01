@@ -121,7 +121,7 @@ def comb_cont(this: Operation, queue, *stack, library={}):
         value = input("\033[4 q\033[36m  ...  \033[0m")
         if value.strip():
             for typ, data in parse(value, start='term'):
-                program, _ = compile_body(data, library)
+                program, _ = compile_body(data, library, meta={'filename': '<repl>', 'lines': (1, 1)})
     except Exception as e:
         print('EXCEPTION: comb_cont could not parse or compile the text.', e)
         traceback.print_exc(limit=2)
