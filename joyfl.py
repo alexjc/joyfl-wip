@@ -298,14 +298,14 @@ def load_source_lines(meta, keyword, line):
     lines[j] = lines[j].replace(keyword, f"\033[48;5;30m\033[1;97m{keyword}\033[0m")
     return '\n'.join(lines)
 
-def print_source_lines(op, library):
+def print_source_lines(op, lib):
     def _contained_in(k, prg):
         if isinstance(prg, list): return any(_contained_in(k, p) for p in prg)
         return id(op) == id(prg)
 
-    for k, (prog, meta) in library.items():
-        if not _contained_in(k, prog): continue
-        print(f"\033[97m  File \"{meta['filename']}\", lines {meta['start']}-{meta['finish']}, in {k}\033[0m")
+    src = [(meta, f'in {k}') for k, (prog, meta) in lib.items() if _contained_in(k, prog)]
+    for meta, ctx in src + [(op.meta, '')]:
+        print(f"\033[97m  File \"{meta['filename']}\", lines {meta['start']}-{meta['finish']}, in {ctx}\033[0m")
         lines = load_source_lines(meta, keyword=op.name, line=op.meta['start'])
         print(textwrap.indent(textwrap.dedent(lines), prefix='    '), sep='\n', end='\n\n')
         break
@@ -407,6 +407,12 @@ def interpret(program: list, stack=None, library={}, verbosity=0, stats=None):
             case Operation.FUNCTION:
                 try:
                     stack = op.ptr(*stack)
+                except AssertionError as exc:
+                    print(f'\033[30;43m ASSERTION FAILED. \033[0m Function \033[1;97m`{op}`\033[0m raised an error.\n')
+                    print_source_lines(op, library)
+                    print(f'\033[1;33m  Stack content, step {step}, is\033[0;33m\n    ', end='')
+                    show_stack(stack, width=None); print('\033[0m')
+                    return False
                 except Exception as exc:
                     print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
                     tb_lines = traceback.format_exc().split('\n')
