@@ -479,6 +479,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, 
     for source, filename in items:
         try:
             r, globals_ = execute(source, globals_=globals_, filename=filename, verbosity=verbose, stats=total_stats)
+            if r is None and not ignore: sys.exit(1)
 
         except NameError as exc:
             if hasattr(exc, 'token'):
