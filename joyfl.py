@@ -445,7 +445,7 @@ def execute(source: str, globals_={}, filename=None, verbosity=0, stats=None):
         if typ == 'term':
             prg, _ = compile_body(data, library=locals_, meta={'filename': filename, 'lines': (2^32, -1)})
             out = interpret(prg, library=locals_, verbosity=verbosity, stats=stats)
-            if out is False: return None, {}
+            if out is False: return None, locals_
         elif typ == 'library':
             for name, tokens in data['public']:
                 locals_[name[1]] = None
