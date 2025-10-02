@@ -3,6 +3,7 @@
 # joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
 #
 
+import re
 import sys
 import math
 import time
@@ -28,6 +29,11 @@ def list_to_stack(values, base=None):
     return stack
 
 
+def _write_without_ansi(write_fn):
+    """Wrapper function that strips ANSI codes before calling the original writer."""
+    ansi_re = re.compile(r'\033\[[0-9;]*m')
+    return lambda text: write_fn(ansi_re.sub('', text))
+
 def _format_item(it, width=None, indent=0):
     if isinstance(it, list):
         formatted_items = [_format_item(i, width, indent + 4) for i in it]
@@ -47,11 +53,11 @@ def _format_item(it, width=None, indent=0):
     if isinstance(it, bytes): return str(it)[1:-1]
     return str(it)
 
-def show_stack(stack, width=72, end='\n'):
+def show_stack(stack, width=72, end='\n', file=None):
     stack_str = ' '.join(_format_item(s) for s in reversed(stack_to_list(stack))) if stack else '∅'
     if len(stack_str) > (width or sys.maxsize):
         stack_str = '… ' + stack_str[-width+2:]
-    print(f"{stack_str:>{width}}" if width else stack_str, end=end)
+    print(f"{stack_str:>{width}}" if width else stack_str, end=end, file=file)
 
 def show_program_and_stack(program, stack, width=72):
     prog_str = ' '.join(_format_item(p) for p in program) if program else '∅'
@@ -298,16 +304,16 @@ def load_source_lines(meta, keyword, line):
     lines[j] = lines[j].replace(keyword, f"\033[48;5;30m\033[1;97m{keyword}\033[0m")
     return '\n'.join(lines)
 
-def print_source_lines(op, lib):
+def print_source_lines(op, lib, file=sys.stderr):
     def _contained_in(k, prg):
         if isinstance(prg, list): return any(_contained_in(k, p) for p in prg)
         return id(op) == id(prg)
 
     src = [(meta, f'in {k}') for k, (prog, meta) in lib.items() if _contained_in(k, prog)]
     for meta, ctx in src + [(op.meta, '')]:
-        print(f"\033[97m  File \"{meta['filename']}\", lines {meta['start']}-{meta['finish']}, in {ctx}\033[0m")
+        print(f"\033[97m  File \"{meta['filename']}\", lines {meta['start']}-{meta['finish']}, in {ctx}\033[0m", file=file)
         lines = load_source_lines(meta, keyword=op.name, line=op.meta['start'])
-        print(textwrap.indent(textwrap.dedent(lines), prefix='    '), sep='\n', end='\n\n')
+        print(textwrap.indent(textwrap.dedent(lines), prefix='    '), sep='\n', end='\n\n', file=file)
         break
 
 def format_parse_error_context(filename, line, column, token_value):
@@ -408,16 +414,16 @@ def interpret(program: list, stack=None, library={}, verbosity=0, stats=None):
                 try:
                     stack = op.ptr(*stack)
                 except AssertionError as exc:
-                    print(f'\033[30;43m ASSERTION FAILED. \033[0m Function \033[1;97m`{op}`\033[0m raised an error.\n')
-                    print_source_lines(op, library)
-                    print(f'\033[1;33m  Stack content, step {step}, is\033[0;33m\n    ', end='')
-                    show_stack(stack, width=None); print('\033[0m')
+                    print(f'\033[30;43m ASSERTION FAILED. \033[0m Function \033[1;97m`{op}`\033[0m raised an error.\n', file=sys.stderr)
+                    print_source_lines(op, library, file=sys.stderr)
+                    print(f'\033[1;33m  Stack content, step {step}, is\033[0;33m\n    ', end='', file=sys.stderr)
+                    show_stack(stack, width=None, file=sys.stderr); print('\033[0m', file=sys.stderr)
                     return False
                 except Exception as exc:
-                    print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n')
+                    print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n', file=sys.stderr)
                     tb_lines = traceback.format_exc().split('\n')
-                    print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n')
-                    print_source_lines(op, library)
+                    print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n', file=sys.stderr)
+                    print_source_lines(op, library, file=sys.stderr)
                     return False
             case Operation.COMBINATOR:
                 stack = op.ptr(op, program, *stack, library=library)
@@ -462,11 +468,16 @@ def execute(source: str, globals_={}, filename=None, verbosity=0, stats=None):
 @click.option('--verbose', '-v', default=0, count=True, help='Enable verbose interpreter execution.')
 @click.option('--ignore', '-i', is_flag=True, help='Ignore errors and continue executing.')
 @click.option('--stats', is_flag=True, help='Display execution statistics (e.g., number of steps).')
-def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, stats: bool):
+@click.option('--plain', '-p', is_flag=True, help='Strip ANSI color codes and redirect stderr to stdout.')
+def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, stats: bool, plain: bool):
+
+    if plain is True:
+        writer = _write_without_ansi(sys.stdout.write)
+        sys.stdout.write, sys.stderr.write = writer, writer
     
     def _fatal_error(message: str, detail: str, exc_type: str = None, context: str = ''):
         header = detail if not exc_type else f"{detail} (Exception: \033[33m{exc_type}\033[0m)"
-        print(f'\033[30;43m {message} \033[0m {header}\n{context}')
+        print(f'\033[30;43m {message} \033[0m {header}\n{context}', file=sys.stderr)
         if not ignore: sys.exit(1)
     
     _, globals_ = execute(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy')
