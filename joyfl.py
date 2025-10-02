@@ -229,7 +229,10 @@ private_clause: ("PRIVATE" | "HIDDEN") definition_sequence
 public_clause: ("PUBLIC" | "DEFINE" | "LIBRA") definition_sequence
 // definition_sequence: definition (SEPARATOR definition)* SEPARATOR?
 definition_sequence: definition (SEPARATOR definition)* SEPARATOR?
-definition: NAME EQUALS term
+definition: NAME stack_effect? EQUALS term
+stack_effect: COLON LPAREN stack_pattern ARROW stack_pattern RPAREN
+stack_pattern: stack_item*
+stack_item: NAME | LSQB stack_pattern RSQB
 
 ?term: (NAME | FLOAT | INTEGER | CHAR | STRING | LBRACE CHAR_OR_INT* RBRACE | LSQB term RSQB)*
 
@@ -247,6 +250,10 @@ INTEGER.8: /-?\d+/
 CHAR.8: /'(?:[^'\[\]\{\}\;\.$\s]+)/
 CHAR_OR_INT: (CHAR | INTEGER)
 EQUALS: "=="
+COLON: ":"
+ARROW: "--"
+LPAREN: "("
+RPAREN: ")"
 LSQB: "["
 RSQB: "]" 
 LBRACE: "{"
@@ -267,9 +274,10 @@ def parse(source: str, start='start', filename=None):
 
     def _flatten(node):
         if isinstance(node, lark.Tree):
+            if node.data == 'stack_effect': return  # documentation only for now
             for child in node.children:
                 yield from _flatten(child)
-        elif node.type != 'SEPARATOR':
+        elif node.type not in ('SEPARATOR', 'COLON', 'LPAREN', 'RPAREN', 'ARROW'):
             meta = {'filename': filename, 'lines': (node.line, node.end_line),
                     'columns': (node.column, node.end_column)} if hasattr(node, 'line') else {}
             yield (node.type, node.value, meta)
