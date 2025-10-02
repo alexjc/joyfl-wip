@@ -482,12 +482,13 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, 
     if plain is True:
         writer = _write_without_ansi(sys.stdout.write)
         sys.stdout.write, sys.stderr.write = writer, writer
-    
+    failure = False
+
     def _fatal_error(message: str, detail: str, exc_type: str = None, context: str = ''):
         header = detail if not exc_type else f"{detail} (Exception: \033[33m{exc_type}\033[0m)"
         print(f'\033[30;43m {message} \033[0m {header}\n{context}', file=sys.stderr)
         if not ignore: sys.exit(1)
-    
+
     _, globals_ = execute(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy')
 
     # Build execution list: files first, then commands.
@@ -498,7 +499,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, 
     for source, filename in items:
         try:
             r, globals_ = execute(source, globals_=globals_, filename=filename, verbosity=verbose, stats=total_stats)
-            if r is None and not ignore: sys.exit(1)
+            (r is None and (failure := True)) or (not ignore and sys.exit(1))
 
         except NameError as exc:
             if hasattr(exc, 'token'):
@@ -547,6 +548,8 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, 
 
             except (KeyboardInterrupt, EOFError):
                 print(""); break
+
+    sys.exit(failure)
 
 
 if __name__ == "__main__":
