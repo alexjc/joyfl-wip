@@ -15,12 +15,15 @@ import collections
 import click
 
 
-def stack_to_list(stack):
+class stack(list): pass
+
+
+def stack_to_list(stk):
     result = []
-    while stack:
-        stack, head = stack
+    while stk:
+        stk, head = stk
         result.append(head)
-    return result
+    return stack(result)
 
 def list_to_stack(values, base=None):
     stack = tuple() if base is None else base
@@ -35,18 +38,20 @@ def _write_without_ansi(write_fn):
     return lambda text: write_fn(ansi_re.sub('', text))
 
 def _format_item(it, width=None, indent=0):
-    if isinstance(it, list):
-        formatted_items = [_format_item(i, width, indent + 4) for i in it]
-        single_line = '[' + ' '.join(formatted_items) + ']'
+    if (is_stack := isinstance(it, stack)) or isinstance(it, list):
+        items = reversed(it) if is_stack else it
+        lhs, rhs = ('<', '>') if is_stack else ('[', ']')
+        formatted_items = [_format_item(i, width, indent + 4) for i in items]
+        single_line = lhs + ' '.join(formatted_items) + rhs
         # If it fits on one line, use single line format.
         if width is None or len(single_line) + indent <= width:
             return single_line
         # Otherwise use multi-line format...
-        result = '[   '
+        result = lhs + '   '
         for i, item in enumerate(formatted_items):
             if i > 0: result += '\n' + (' ' * (indent + 4))
             result += item
-        result += '\n' + (' ' * indent) + ']'
+        result += '\n' + (' ' * indent) + rhs
         return result
     
     if isinstance(it, bool): return str(it).lower()
