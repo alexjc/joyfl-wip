@@ -3,6 +3,7 @@
 # joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
 #
 
+import os
 import re
 import sys
 import math
@@ -314,6 +315,7 @@ def parse(source: str, start='start', filename=None):
     yield from _traverse(tree)
 
 def load_source_lines(meta, keyword, line):
+    if meta['filename'] is None or not os.path.isfile(meta['filename']): return ""
     source = open(meta['filename'], 'r').read()
     lines = [l for l in source.split('\n')[meta['start']-1:meta['finish']]]
     j = line - meta['start']
@@ -328,13 +330,12 @@ def print_source_lines(op, lib, file=sys.stderr):
     src = [(meta, f'in {k}') for k, (prog, meta) in lib.items() if _contained_in(k, prog)]
     for meta, ctx in src + [(op.meta, '')]:
         print(f"\033[97m  File \"{meta['filename']}\", lines {meta['start']}-{meta['finish']}, in {ctx}\033[0m", file=file)
-        lines = load_source_lines(meta, keyword=op.name, line=op.meta['start'])
-        print(textwrap.indent(textwrap.dedent(lines), prefix='    '), sep='\n', end='\n\n', file=file)
+        if (lines := load_source_lines(meta, keyword=op.name, line=op.meta['start'])):
+            print(textwrap.indent(textwrap.dedent(lines), prefix='    '), sep='\n', end='\n\n', file=file)
         break
 
-def format_parse_error_context(filename, line, column, token_value):
-    with open(filename, 'r') as f:
-        lines = f.readlines()
+def format_parse_error_context(filename, line, column, token_value, source=None):
+    lines = source.splitlines(keepends=True) if source else open(filename, 'r').readlines()
     start_line, end_line = max(0, line - 3), min(len(lines), line + 2)
     result = [f"\033[97m  File \"{filename}\", line {line}\033[0m"]
 
@@ -515,7 +516,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, 
                 _fatal_error("LINKER ERROR.", detail, type(exc).__name__)
 
         except lark.exceptions.ParseError as exc:
-            context = format_parse_error_context(filename, exc.line, exc.column, exc.token.value)
+            context = format_parse_error_context(filename, exc.line, exc.column, exc.token.value, source=source)
             context += f"\n\033[90m{str(exc).replace(chr(10), ' ').replace(chr(9), ' ')}\033[0m\n"
             _fatal_error("SYNTAX ERROR.", f"Parsing `\033[97m{filename}\033[0m` caused a problem!", type(exc).__name__, context=context)
 
@@ -545,7 +546,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, 
                 source += line + " "
 
                 try:
-                    stack, globals_ = execute(source, globals_=globals_, verbosity=verbose)
+                    stack, globals_ = execute(source, globals_=globals_, filename='<REPL>', verbosity=verbose)
                     if stack: print("\033[90m>>>\033[0m", _format_item(stack[-1]))
                     source = ""
                 except lark.exceptions.ParseError as exc:
