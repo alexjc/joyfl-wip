@@ -5,6 +5,7 @@
 
 import os
 import re
+import ast
 import sys
 import math
 import time
@@ -386,7 +387,7 @@ def compile_body(tokens: list, library={}, meta={}):
                 prg = library[token]
             output.append(EXEC(token, prg, mt))
         elif token.startswith('"') and token.endswith('"'):
-            output.append(str(token.strip('"')))
+            output.append(ast.literal_eval(token))
         elif token.startswith("'"):
             output.append(bytes(token[1:], encoding='utf-8'))
         elif token.isdigit() or token[0] == '-' and token[1:].isdigit():
