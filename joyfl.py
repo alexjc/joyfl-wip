@@ -211,6 +211,10 @@ FUNCTIONS = {
     'put!': lambda t, h: print('\033[97m' + _format_item(h, width=120) + '\033[0m') or t,
     'assert!': lambda t, h: _assert(h) or t,
     'raise!': lambda t, h: _raise(h) or t,
+    # STRING MANIPULATION
+    'str-concat': lambda t, h: (t[0], str(t[1]) + str(h)),
+    'str-match?': lambda t, h: (t[0], str(t[1]) in str(h)),
+    'str-split': lambda t, h: (t[0], h.split(t[1]) if isinstance(h, str) else h),
     # LIST OPERATIONS
     'concat': lambda t, h: (t[0], t[1] + h),
     'reverse': lambda t, h: (t, list(reversed(h))),
