@@ -9,6 +9,7 @@ import ast
 import sys
 import math
 import time
+import inspect
 import textwrap
 import readline
 import traceback
@@ -405,6 +406,48 @@ def compile_body(tokens: list, library={}, meta={}):
     return output, meta
 
 
+_FUNCTION_SIGNATURES = {}
+
+def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
+    """Check if operations can execute on stack. Only built-in functions currently."""
+    if op.type != Operation.FUNCTION: return True, ""
+    
+    if op.name not in _FUNCTION_SIGNATURES:
+        sig = list(inspect.signature(op.ptr).parameters.values())
+        if len(sig) == 1 and sig[0].kind == inspect.Parameter.VAR_POSITIONAL:
+            _FUNCTION_SIGNATURES[op.name] = {'variadic': True}
+        elif len(sig) == 2:
+            tail_param, head_param = sig[0].name, sig[1].name
+            needs_two_items = tail_param not in ('t', 'tail', '_') or any(c in tail_param for c in ['0', '1'])
+            type_map = {'I': (int, 'int'), 'L': (list, 'list'), 'S': (str, 'str'), 'B': (bool, 'bool')}
+            head_type, tail_type = None, None
+            for suffix, (expected_type, type_name) in type_map.items():
+                if head_param.endswith(suffix): head_type = (expected_type, type_name)
+                if tail_param.endswith(suffix): tail_type = (expected_type, type_name)
+            _FUNCTION_SIGNATURES[op.name] = {'needs_two_items': needs_two_items,
+                                   'head_type': head_type, 'tail_type': tail_type}
+        else:
+            raise NotImplementedError(f"Unexpected function signature for `{op.name}`: {sig}")
+    
+    sig_info = _FUNCTION_SIGNATURES[op.name]
+    if sig_info.get('variadic'): return True, ""
+    if not stack or stack == tuple():
+        return False, f"`{op.name}` needs at least 1 item on the stack, but stack is empty."
+    # Non-variadic functions are always technically two-parameter form (tail, head).
+    tail, head = stack
+    if sig_info['needs_two_items'] and tail == tuple():
+        return False, f"`{op.name}` needs at least 2 items on the stack, but only 1 available."
+    if sig_info['head_type']:
+        expected_type, type_name = sig_info['head_type']
+        if not isinstance(head, expected_type):
+            return False, f"`{op.name}` expects {type_name} on top of stack, got {type(head).__name__}."
+    if sig_info['tail_type'] and sig_info['needs_two_items'] and len(tail) == 2:
+        expected_type, type_name = sig_info['tail_type']
+        if not isinstance(tail[1], expected_type):
+            return False, f"`{op.name}` expects {type_name} as second item, got {type(tail[1]).__name__}."
+    return True, ""
+
+
 def interpret_step(program, stack, library={}):
     op = program.popleft()
     if isinstance(op, bytes) and op in (b'ABORT', b'BREAK'):
@@ -440,7 +483,7 @@ def interpret_step(program, stack, library={}):
     return stack, program
 
 
-def interpret(program: list, stack=None, library={}, verbosity=0, stats=None):
+def interpret(program: list, stack=None, library={}, verbosity=0, validate=False, stats=None):
     stack = tuple() if stack is None else stack
     program = collections.deque(program)
 
@@ -450,6 +493,15 @@ def interpret(program: list, stack=None, library={}, verbosity=0, stats=None):
 
     step = 0
     while program:
+        if validate and isinstance(program[0], Operation):
+            if (check := can_execute(program[0], stack, library)) and not check[0]:
+                print(f'\033[30;43m TYPE ERROR. \033[0m {check[1]}\n', file=sys.stderr)
+                print(f'\033[1;33m  Stack content is\033[0;33m\n    ', end='', file=sys.stderr)
+                show_stack(stack, width=None, file=sys.stderr)
+                print('\033[0m', file=sys.stderr)
+                print_source_lines(program[0], library, file=sys.stderr)
+                break
+        
         if verbosity == 2 or (verbosity == 1 and (is_notable(program[0]) or step == 0)):
             print(f"\033[90m{step:>3} :\033[0m  ", end='')
             show_program_and_stack(program, stack)
@@ -466,7 +518,7 @@ def interpret(program: list, stack=None, library={}, verbosity=0, stats=None):
     return stack
 
 
-def execute(source: str, globals_={}, filename=None, verbosity=0, stats=None):
+def execute(source: str, globals_={}, filename=None, verbosity=0, validate=False, stats=None):
     locals_ = globals_.copy()
     def _link_body(n):
         if isinstance(n, list): return [_link_body(t) for t in n]
@@ -477,7 +529,7 @@ def execute(source: str, globals_={}, filename=None, verbosity=0, stats=None):
     for typ, data in parse(source, filename=filename):
         if typ == 'term':
             prg, _ = compile_body(data, library=locals_, meta={'filename': filename, 'lines': (2^32, -1)})
-            out = interpret(prg, library=locals_, verbosity=verbosity, stats=stats)
+            out = interpret(prg, library=locals_, verbosity=verbosity, validate=validate, stats=stats)
             if out is False: return None, locals_
         elif typ == 'library':
             for name, tokens in data['public']:
@@ -493,10 +545,11 @@ def execute(source: str, globals_={}, filename=None, verbosity=0, stats=None):
 @click.option('--command', '-c', 'commands', multiple=True, type=str, help='Execute Joy code from command line.')
 @click.option('--repl', is_flag=True, help='Start REPL after executing commands and files.')
 @click.option('--verbose', '-v', default=0, count=True, help='Enable verbose interpreter execution.')
+@click.option('--validate', is_flag=True, help='Enable type and stack validation before each operation.')
 @click.option('--ignore', '-i', is_flag=True, help='Ignore errors and continue executing.')
 @click.option('--stats', is_flag=True, help='Display execution statistics (e.g., number of steps).')
 @click.option('--plain', '-p', is_flag=True, help='Strip ANSI color codes and redirect stderr to stdout.')
-def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, stats: bool, plain: bool):
+def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool, ignore: bool, stats: bool, plain: bool):
 
     if plain is True:
         writer = _write_without_ansi(sys.stdout.write)
@@ -522,7 +575,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, 
             if is_repl and verbose > 0: traceback.print_exc()
         return False
 
-    _, globals_ = execute(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy')
+    _, globals_ = execute(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy', validate=validate)
 
     # Build execution list: files first, then commands.
     items = [(f.read(), f.name) for f in files]
@@ -531,7 +584,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, 
     total_stats = {'steps': 0, 'start': time.time()} if stats else None
     for source, filename in items:
         try:
-            r, globals_ = execute(source, globals_=globals_, filename=filename, verbosity=verbose, stats=total_stats)
+            r, globals_ = execute(source, globals_=globals_, filename=filename, verbosity=verbose, validate=validate, stats=total_stats)
             (r is None and ((failure := True) or (not ignore and sys.exit(1))))
         except (NameError, lark.exceptions.ParseError, Exception) as exc:
             _handle_exception(exc, filename, source, is_repl=False)
@@ -556,7 +609,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, ignore: bool, 
                 source += line + " "
 
                 try:
-                    stack, globals_ = execute(source, globals_=globals_, filename='<REPL>', verbosity=verbose)
+                    stack, globals_ = execute(source, globals_=globals_, filename='<REPL>', verbosity=verbose, validate=validate)
                     if stack: print("\033[90m>>>\033[0m", _format_item(stack[-1]))
                     source = ""
                 except (NameError, lark.exceptions.ParseError, Exception) as exc:
