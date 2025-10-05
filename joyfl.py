@@ -86,7 +86,7 @@ class Operation:
         self.meta = meta
 
     def __eq__(self, other):
-        return self.type == other.type and self.ptr == other.ptr
+        return isinstance(other, Operation) and self.type == other.type and self.ptr == other.ptr
 
     def __repr__(self):
         return f"{self.name}"
@@ -410,8 +410,14 @@ _FUNCTION_SIGNATURES = {}
 
 def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
     """Check if operations can execute on stack. Only built-in functions currently."""
+    if not stack or stack == tuple():
+        return False, f"`{op.name}` needs at least 1 item on the stack, but stack is empty."
+
+    tail, head = stack
+    if op.name in ("i", "dip") and not isinstance(head, list):
+        return False, f"`{op.name}` requires a quotation as list as top item on the stack."
+
     if op.type != Operation.FUNCTION: return True, ""
-    
     if op.name not in _FUNCTION_SIGNATURES:
         sig = list(inspect.signature(op.ptr).parameters.values())
         if len(sig) == 1 and sig[0].kind == inspect.Parameter.VAR_POSITIONAL:
@@ -419,7 +425,7 @@ def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
         elif len(sig) == 2:
             tail_param, head_param = sig[0].name, sig[1].name
             needs_two_items = tail_param not in ('t', 'tail', '_') or any(c in tail_param for c in ['0', '1'])
-            type_map = {'I': (int, 'int'), 'L': (list, 'list'), 'S': (str, 'str'), 'B': (bool, 'bool')}
+            type_map = {'I': (int, 'int'), 'L': (list, 'list'), 'S': (str, 'str'), 'B': (bool, 'bool'), 'A': (None, 'any')}
             head_type, tail_type = None, None
             for suffix, (expected_type, type_name) in type_map.items():
                 if head_param.endswith(suffix): head_type = (expected_type, type_name)
@@ -430,20 +436,18 @@ def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
             raise NotImplementedError(f"Unexpected function signature for `{op.name}`: {sig}")
     
     sig_info = _FUNCTION_SIGNATURES[op.name]
-    if sig_info.get('variadic'): return True, ""
-    if not stack or stack == tuple():
-        return False, f"`{op.name}` needs at least 1 item on the stack, but stack is empty."
+    if sig_info.get('variadic'):
+        return True, ""
     # Non-variadic functions are always technically two-parameter form (tail, head).
-    tail, head = stack
     if sig_info['needs_two_items'] and tail == tuple():
         return False, f"`{op.name}` needs at least 2 items on the stack, but only 1 available."
     if sig_info['head_type']:
         expected_type, type_name = sig_info['head_type']
-        if not isinstance(head, expected_type):
+        if expected_type and not isinstance(head, expected_type):
             return False, f"`{op.name}` expects {type_name} on top of stack, got {type(head).__name__}."
     if sig_info['tail_type'] and sig_info['needs_two_items'] and len(tail) == 2:
         expected_type, type_name = sig_info['tail_type']
-        if not isinstance(tail[1], expected_type):
+        if expected_type and not isinstance(tail[1], expected_type):
             return False, f"`{op.name}` expects {type_name} as second item, got {type(tail[1]).__name__}."
     return True, ""
 
@@ -461,20 +465,7 @@ def interpret_step(program, stack, library={}):
 
     match op.type:
         case Operation.FUNCTION:
-            try:
-                stack = op.ptr(*stack)
-            except AssertionError as exc:
-                print(f'\033[30;43m ASSERTION FAILED. \033[0m Function \033[1;97m`{op}`\033[0m raised an error.\n', file=sys.stderr)
-                print_source_lines(op, library, file=sys.stderr)
-                print(f'\033[1;33m  Stack content is\033[0;33m\n    ', end='', file=sys.stderr)
-                show_stack(stack, width=None, file=sys.stderr); print('\033[0m', file=sys.stderr)
-                raise
-            except Exception as exc:
-                print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n', file=sys.stderr)
-                tb_lines = traceback.format_exc().split('\n')
-                print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n', file=sys.stderr)
-                print_source_lines(op, library, file=sys.stderr)
-                raise
+            stack = op.ptr(*stack)
         case Operation.COMBINATOR:
             stack = op.ptr(op, program, *stack, library=library)
         case Operation.EXECUTE:
@@ -507,7 +498,20 @@ def interpret(program: list, stack=None, library={}, verbosity=0, validate=False
             show_program_and_stack(program, stack)
 
         step += 1
-        stack, program = interpret_step(program, stack, library)
+        try:
+            stack, program = interpret_step(program, stack, library)
+        except AssertionError as exc:
+            print(f'\033[30;43m ASSERTION FAILED. \033[0m Function \033[1;97m`{op}`\033[0m raised an error.\n', file=sys.stderr)
+            print_source_lines(op, library, file=sys.stderr)
+            print(f'\033[1;33m  Stack content is\033[0;33m\n    ', end='', file=sys.stderr)
+            show_stack(stack, width=None, file=sys.stderr); print('\033[0m', file=sys.stderr)
+            raise
+        except Exception as exc:
+            print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n', file=sys.stderr)
+            tb_lines = traceback.format_exc().split('\n')
+            print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n', file=sys.stderr)
+            print_source_lines(op, library, file=sys.stderr)
+            raise
 
     if verbosity > 0:
         print(f"\033[90m{step:>3} :\033[0m  ", end='')
