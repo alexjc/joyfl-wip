@@ -228,6 +228,10 @@ FUNCTIONS = {
     'sum': lambda t, hL: (t, sum(hL)),
     'length': lambda t, h: (t, len(h)),  # polymorphic: works on lists, strings, etc.
     'product': lambda t, hL: (t, math.prod(hL)),
+    # DICTIONARY
+    'dict-new': lambda *s: (s, {}),
+    'dict-store': lambda tDC, h: (tDC[0][0], (tDC[0][1].__setitem__(tDC[1], h) or tDC[0][1])),
+    'dict-fetch': lambda tD, hC: (tD[0], tD[1][hC]),
 }
 
 CONSTANTS = {
@@ -425,7 +429,8 @@ def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
         elif len(sig) == 2:
             tail_param, head_param = sig[0].name, sig[1].name
             needs_two_items = tail_param not in ('t', 'tail', '_') or any(c in tail_param for c in ['0', '1'])
-            type_map = {'I': (int, 'int'), 'L': (list, 'list'), 'S': (str, 'str'), 'B': (bool, 'bool'), 'A': (None, 'any')}
+            type_map = {'I': (int, 'int'), 'L': (list, 'list'), 'S': (str, 'str'), 'C': (bytes, 'symbol'),
+                        'B': (bool, 'bool'), 'A': (None, 'any'), 'D': (dict, 'dict')}
             head_type, tail_type = None, None
             for suffix, (expected_type, type_name) in type_map.items():
                 if head_param.endswith(suffix): head_type = (expected_type, type_name)
@@ -499,6 +504,7 @@ def interpret(program: list, stack=None, library={}, verbosity=0, validate=False
 
         step += 1
         try:
+            op = program[0]
             stack, program = interpret_step(program, stack, library)
         except AssertionError as exc:
             print(f'\033[30;43m ASSERTION FAILED. \033[0m Function \033[1;97m`{op}`\033[0m raised an error.\n', file=sys.stderr)
