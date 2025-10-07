@@ -511,13 +511,13 @@ def interpret(program: list, stack=None, library={}, verbosity=0, validate=False
             print_source_lines(op, library, file=sys.stderr)
             print(f'\033[1;33m  Stack content is\033[0;33m\n    ', end='', file=sys.stderr)
             show_stack(stack, width=None, file=sys.stderr); print('\033[0m', file=sys.stderr)
-            raise
+            return
         except Exception as exc:
             print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n', file=sys.stderr)
             tb_lines = traceback.format_exc().split('\n')
             print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n', file=sys.stderr)
             print_source_lines(op, library, file=sys.stderr)
-            raise
+            return
 
     if verbosity > 0:
         print(f"\033[90m{step:>3} :\033[0m  ", end='')
