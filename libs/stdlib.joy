@@ -88,7 +88,47 @@ PUBLIC
     *   NOTE:       The quotation can consume stack items but they are all restored afterward.
     *)
     nullary         ==  stack swap dip rest cons unstack ;
-    ifte            ==  [nullary] dipd :branch ;
+
+   (*  `_stack-and-keep-one` — (private) captures current stack state as a list while preserving input list.
+    *
+    *   EXAMPLE:    10 20 [5] _stack-and-keep-one → [20 10] [5]
+    *   NOTE:       Solves the problem of comparing stack state before/after execution.
+    *               After a quotation runs, we need to distinguish new results from preserved items.
+    *               This captures the full stack snapshot while keeping the preserved list for comparison.
+    *)
+    _stack-and-keep-one : ( [preserved] -- [stack] [preserved] )
+                        ==  dup                     # duplicate the preserved list for later use
+                            [pop stack] dip ;       # capture entire stack while keeping preserved list
+    
+   (*  `_separate-results` — (private) separates quotation results from preserved stack items.
+    *
+    *   EXAMPLE:    After running a quotation: 1 2 99 [2 1] _separate-results → [99] [2 1]
+    *   NOTE:       Solves the problem of stack preservation with variable-result quotations.
+    *               Classic stack combinators assume fixed results, but real quotations may produce
+    *               0, 1, or many results. This compares the current stack state (which contains
+    *               both results and preserved items) against the preserved list baseline to compute
+    *               how many results were produced, then extracts just those results.
+    *)
+    _separate-results : ( [results] [preserved] -- [results] [preserved] )
+                      ==  dup size [swap] dip   # compute number of preserved items
+                          over size swap -      # calculate result count = total - preserved
+                          take                  # extract just the result items
+                          swap ;                # reorder to [results] [preserved]
+
+   (*  `unary` — executes a quotation with one argument, preserving the rest of the stack.
+    *
+    *   EXAMPLE:    1 2 3 [dup *] unary stack [9 2 1] equal? .
+    *   NOTE:       Correctly handles quotations producing any number of results (0, 1, or many).
+    *               Uses _separate-results helper to separate results from preserved stack items.
+    *)
+    
+    unary : ( x [P] -- R )
+          ==  stack rest rest               # save preserved items (excluding arg and quotation)
+              [i] dip                       # run quotation on argument, keep preserved list safe
+              _stack-and-keep-one           # get snapshot of all stack items
+              _separate-results             # separate quotation results from preserved items
+              concat                        # merge preserved and results into single list
+              unstack ;                     # restore all items to stack in correct order
 
    (*  `ifte` — if/then/else combinator for conditional execution.
     *
