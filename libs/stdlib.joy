@@ -15,6 +15,8 @@ PUBLIC
     succ            ==  1 + ;
     ++              ==  1 + ;
 
+    str-swoncat     ==  swap str-concat ;
+
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # Stack Manipulation
@@ -33,6 +35,7 @@ PUBLIC
     unpair          ==  uncons uncons pop ;
 
     swons           ==  swap cons ;
+    unswons         ==  uncons swap ;
     swoncat         ==  swap concat ;
     swappend        ==  swap append ;
 
@@ -41,6 +44,7 @@ PUBLIC
 # Function Calling
 
     x               ==  dup i ;
+    y               ==  [dup cons] swap concat dup cons i ;
 
     dupd            ==  [dup] :dip ;
 
@@ -48,7 +52,8 @@ PUBLIC
     *   EXAMPLE:    1 2 3 [10 +] dipd rolldown 11 equal? .
     *   NOTE:       This version is intentionally cons free, alternative is [dip] cons dip.
     *)
-    dipd            ==  [dip] cons dip ;
+    dipd            ==  swap [dip] :dip ;
+    over            ==  dupd swap ;
 
     app1            ==  i ; 
     app2            ==  dup [dip] :dip i ;
