@@ -7,9 +7,8 @@ MODULE stdlib
 
 PUBLIC
 
-(*
- *  Arithmetic
- *)
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Basic Operations
 
     pred            ==  1 - ;
     --              ==  1 - ;
@@ -17,9 +16,8 @@ PUBLIC
     ++              ==  1 + ;
 
 
-(*
- *  Stack Manipulation
- *)
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Stack Manipulation
 
     popd            ==  [pop] :dip ;
     swapd           ==  [swap] :dip ;
@@ -28,9 +26,9 @@ PUBLIC
     rolldown        ==  [swap] :dip swap ;
 
 
-(*
- *  Data Structures
- *)
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Data Structures
+
     pair            ==  [] cons cons ;
     unpair          ==  uncons uncons pop ;
 
@@ -39,56 +37,135 @@ PUBLIC
     swappend        ==  swap append ;
 
 
-(*
- *  Function Calling
- *)
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Function Calling
 
     x               ==  dup i ;
 
     dupd            ==  [dup] :dip ;
+
+   (*  `dipd` — executes a quotation with the top two stack items saved and restored later.
+    *   EXAMPLE:    1 2 3 [10 +] dipd rolldown 11 equal? .
+    *   NOTE:       This version is intentionally cons free, alternative is [dip] cons dip.
+    *)
     dipd            ==  [dip] cons dip ;
 
     app1            ==  i ; 
     app2            ==  dup [dip] :dip i ;
 
 
-(*
- *  Control Flow
- *)
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Control Flow
 
-    choice          ==  swap pair index ;
-    branch          ==  choice i ;
+   (*  `choice` — selects one of the two top stack items based on a boolean flag.
+    *
+    *   EXAMPLE:    true 'first 'second choice 'first equal? .
+    *   NOTE:       This implementation makes a list and indexes it with bool as int.
+    *)
+    choice          :   (flag  x y         -- result)
+                    #    false x y choice  →  y
+                    #    true  x y choice  →  x
+                    ==  swap pair index ;
+
+   (*  `branch` — selects and executes one of two quotations based on a boolean.
+    *
+    *   EXAMPLE:    5 true [1 +] [1 -] branch put! .
+    *   NOTE:       The flag is consumed, after which teh quatation is inlined with `i`.
+    *)
+    branch          :   (flag  [then] [else]         -- )
+                    #    false [then] [else] branch  →  else i
+                    #    true  [then] [else] branch  →  then i
+                    ==  choice i ;
+
+   (*  `nullary` — executes a quotation without affecting the stack, leaving only its result.
+    *
+    *   EXAMPLE:    10 5 [>] nullary assert! 5 equal? .
+    *   NOTE:       The quotation can consume stack items but they are all restored afterward.
+    *)
     nullary         ==  stack swap dip rest cons unstack ;
     ifte            ==  [nullary] dipd :branch ;
 
+   (*  `ifte` — if/then/else combinator for conditional execution.
+    *
+    *   EXAMPLE:    10 [5 >] [99 +] [99 -] ifte put! .
+    *   NOTE:       Test is executed in nullary context, i.e. no stack effect.
+    *)
+    ifte            :   (x [test] [then] [else]       -- )
+                    #    x [test] [then] [else] ifte  →  then-result or else-result
+                    ==  [nullary] dipd :branch ;
+
+   (*  `loop` — executes program repeatedly while flag is true.
+    *
+    *   EXAMPLE:    3 true [dup put! 1 - dup 0 >] loop .
+    *   NOTE:       The looped program body is usually expected to produce the flag for the
+    *               next iteration, though it can be prepared on the stack too.
+    *)
+    loop            :   (flag  [program]    -- )
+                    #    true  [prog] loop  →  prog [prog] loop
+                    #    false [prog] loop  →  ∅
+                    ==  swap
+                        [dup dip loop]
+                        [pop]
+                        :branch ;
+
+   (*  `branch-cons` — conditionally cons an item onto one of two lists based on a flag.
+    *)
     branch-cons     ==  [swap cons] [swapd swap cons swap] :branch;
+
+   (*  `branch-append` — conditionally append an item to one of two lists based on a flag.
+    *)
     branch-append   ==  [swap append] [swapd swap append swap] :branch;
 
 
-(*
- *  Recursion
- *)
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Recursion
 
-    while           ==  [dup dip swap] :dip swap                            # execute a copy of the condition
+   (*  `while` — executes program repeatedly as long as condition is true.
+    *
+    *   EXAMPLE:    0 [dup 3 <] [dup put! 1 +] while 3 equal? .
+    *   NOTE:       Unlike loop, condition and body are separate quotations evaluated on each iteration.
+    *)
+    while           ==  [dup dip swap] :dip swap                        # execute a copy of the condition
                         [dup [dip] :dip while]                              # execute the program and recurse
                         [pop pop]                                           # cleanup the stack once done
                         :branch ;                                           # check condition flag, pick right option
 
+   (*  `cons4` — cons four items onto a list.
+    *
+    *   EXAMPLE:    1 2 3 4 [] cons4 [1 2 3 4] equal? .
+    *   NOTE:       Helper combinator for building linrec's parameter structure.
+    *)
     cons4           ==  cons cons cons cons ;
+
+   (*  `linrec` — linear recursion combinator with four quotations.
+    *
+    *   EXAMPLE:    5 [0 =] [pop 1] [dup 1 -] [*] linrec 120 equal? .
+    *   NOTE:       Pattern: [if] [then] [rec1] [rec2] linrec. Executes rec1 before recursion, rec2 after.
+    *)
     linrec          ==  [linrec] cons4
                         dup
                         uncons swapd
                         uncons swapd
                         uncons [swap concat] :dip
                         uncons pop concat
-                        ifte ;
+                        :ifte ;
 
+   (*  `tailrec` — tail recursion combinator with three quotations.
+    *
+    *   EXAMPLE:    5 0 [0 =] [pop] [dup 1 - swap 1 + swap] tailrec 5 equal? .
+    *   NOTE:       Pattern: [if] [then] [rec] tailrec. Equivalent to [] linrec, no post-recursion operation.
+    *)
     tailrec         ==  [] :linrec ;
 
 
-(*
- *  Algorithms
- *)
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Algorithms
+
+   (*  `cond` — multi-way conditional selecting first matching case from list of [predicate body] pairs.
+    *
+    *   EXAMPLE:    5 [[[pop true] [999]] [[pop false] [42]]] cond 999 equal? .
+    *   NOTE:       Each predicate receives the value and must return boolean; body executes when true.
+    *)
     cond            ==  [ small? ]                                      # terminate recursion when single item list present
                         [ i ]                                           # if so, then we just execute it to unquote
                         [   dup first                                   # copy the cases, extract the first
@@ -99,20 +176,49 @@ PUBLIC
                         ]
                         :tailrec ;
 
+   (*  `foldl` — left fold reducing a list to single value using binary operation and initial accumulator.
+    *
+    *   EXAMPLE:    [1 2 3 4] 0 [+] foldl 10 equal? .
+    *   NOTE:       Processes list left-to-right, passing accumulator and each element to the quotation.
+    *)
     foldl           ==  swapd                                           # get the ACCUMULATOR, VALUES in order on the stack
                         [dup first swapd] swoncat [swap rest] concat    # assemble a dynamic list of instructions for each step
                         [null?] swap [pop] swap                         # reorder parameters for tailrec's benefit
-                        tailrec ;
+                        :tailrec ;
 
+   (*  `map` — applies quotation to each element of list, collecting results in new list.
+    *
+    *   EXAMPLE:    [1 2 3] [dup *] map [1 4 9] equal? .
+    *   NOTE:       Preserves list order, quotation executed once per element with results accumulated.
+    *)
     map             ==  [] rollup                                       # make a new ACCUMULATOR, and order it before VALUES
                         [dup first] swoncat                             # assemble a dynamic list of instructions for each step
                         [swap [swappend] :dip rest] concat              # -> [dup first PREDICATES swap [swappend] dip rest]
                         [null?] swap [pop] swap                         # reorder parameters based on tailrec's specification
-                        tailrec ;                                      # recurse and discard empty list
+                        :tailrec ;                                      # recurse and discard empty list
 
+   (*  `split` — partitions list into two lists based on predicate, true matches first, false matches second.
+    *
+    *   EXAMPLE:    [1 2 3 4 5] [3 <] split pair [[1 2] [3 4 5]] equal? .
+    *   NOTE:       Maintains relative order within each partition, processes entire input list.
+    *)
     split           ==  [[] []] :dipd
                         [dup first dup] swoncat [rolldown [branch-append] :dip rest] concat
                         [null?] swap [pop swap] swap
-                        tailrec ;
+                        :tailrec ;
+
+   (*  `from-to` — generates list of integers from start to end with custom list builder quotation.
+    *
+    *   EXAMPLE:    1 3 [] from-to [1 2 3] equal? .
+    *   NOTE:       Quotation parameter controls list construction method, typically [] or [cons].
+    *)
+    from-to         ==  [] cons  [pop pop] swoncat [>] swap [ [dup succ] dip ] [cons] linrec ;
+
+   (*  `from-to-list` — generates list of integers from start to end inclusive.
+    *
+    *   EXAMPLE:    1 5 from-to-list [1 2 3 4 5] equal? .
+    *   NOTE:       Convenience function using from-to with empty list builder.
+    *)
+    from-to-list    ==  [] from-to ;
 
 END.
