@@ -15,6 +15,7 @@ import readline
 import traceback
 import collections
 
+from typing import Any, Callable, get_origin, get_args
 import click
 
 
@@ -91,17 +92,10 @@ class Operation:
     def __repr__(self):
         return f"{self.name}"
 
-def FUNC(x, meta={}):
-    return Operation(Operation.FUNCTION, FUNCTIONS[x], x, meta)
-def COMB(x, meta={}):
-    return Operation(Operation.COMBINATOR, COMBINATORS[x], x, meta)
-def EXEC(x, prg, meta={}):
-    return Operation(Operation.EXECUTE, prg, x, meta)
-
 
 def comb_i(_, queue, tail, head, library={}):
     """Takes a program as quotation on the top of the stack, and puts it into the queue for execution."""
-    assert isinstance(head, list)
+    assert isinstance(head, (list, tuple))
     queue.extendleft(reversed(head))
     return tail
 
@@ -154,85 +148,78 @@ COMBINATORS = {
     ',,,': comb_cont,
 }
 
-def _assert(x): assert x
-def _raise(x): raise x
+FUNCTIONS = {}
+num = int | float
 
-# lamba TAIL, HEAD: (NEW_TAIL, NEW_HEAD)
-FUNCTIONS = { 
-    # ARITHMETIC
-    '+': lambda tI, hI: (tI[0], tI[1] + hI),
-    '-': lambda tI, hI: (tI[0], tI[1] - hI),
-    'neg': lambda t, hI: (t, -hI),
-    'abs': lambda t, hI: (t, abs(hI)),
-    'sign': lambda t, hI: (t, (hI > 0) - (hI < 0)),
-    'min': lambda tI, hI: (tI[0], min(tI[1], hI)),
-    'max': lambda tI, hI: (tI[0], max(tI[1], hI)),
-    'square': lambda t, hI: (t, hI*hI),
-    '*': lambda tI, hI: (tI[0], tI[1] * hI),
-    '/': lambda tI, hI: (tI[0], tI[1] // hI),
-    '%': lambda tI, hI: (tI[0], tI[1] % hI),
-        'rem': lambda tI, hI: (tI[0], tI[1] % hI),
-    # BOOLEAN LOGIC
-    '=': lambda t, h: (t[0], t[1] == h),
-        'equal?': lambda t, h: (t[0], t[1] == h),
-    '!=': lambda t, h: (t[0], t[1] != h),
-    '>': lambda tI, hI: (tI[0], tI[1] > hI),
-    '>=': lambda tI, hI: (tI[0], tI[1] >= hI),
-    '<': lambda tI, hI: (tI[0], tI[1] < hI),
-    '<=': lambda tI, hI: (tI[0], tI[1] <= hI),
-    'and': lambda tB, hB: (tB[0], tB[1] and hB),
-    'or': lambda tB, hB: (tB[0], tB[1] or hB),
-    'not': lambda t, hB: (t, not hB),
-    'xor': lambda t, h: (t[0], t[1] ^ h),
-    # DATA & INTROSPECTION
-    'null?': lambda t, h: (t, (len(h) if isinstance(h, (list, str)) else h) == 0),
-    'small?': lambda t, h: (t, (len(h) if isinstance(h, (list, str)) else h) < 2),
-    'sametype?': lambda t, h: (t[0], type(t[1]) == type(h)),
-    'integer?': lambda t, h: (t, isinstance(h, int)),
-    'float?': lambda t, h: (t, isinstance(h, float)),
-    'list?': lambda t, h: (t, isinstance(h, list)),
-    'string?': lambda t, h: (t, isinstance(h, str)),
-    'boolean?': lambda t, h: (t, isinstance(h, bool)),
-    # LIST MANIPULATION
-    'cons': lambda tA, hL: (tA[0], [tA[1]]+hL),
-    'append': lambda tA, hL: (tA[0], hL+[tA[1]]),
-    'remove': lambda tL, h: (tL[0], [x for x in tL[1] if x != h]),
-    'take': lambda tL, hI: (tL[0], tL[1][:hI]),
-    'drop': lambda tL, hI: (tL[0], tL[1][hI:]),
-    'size': lambda t, hL: (t, len(hL)),
-    'uncons': lambda t, hL: ((t, hL[0]), hL[1:]),
-    'swap': lambda tA, hA: ((tA[0], hA), tA[1]),
-    # STACK MANIPULATION
-    'pop': lambda t, _: t,
-    'dup': lambda t, h: ((t, h), h),
-    'stack': lambda *s: (s, stack_to_list(s)),
-    'unstack': lambda _, h: list_to_stack(h),
-    'stack-size': lambda *s: (s, len(stack_to_list(s))),
-    # INPUT / OUTPUT
-    'id': lambda *s: s,
-    'put!': lambda t, h: print('\033[97m' + _format_item(h, width=120) + '\033[0m') or t,
-    'assert!': lambda t, hB: _assert(hB) or t,
-    'raise!': lambda t, h: _raise(h) or t,
-    # STRING MANIPULATION
-    'str-concat': lambda tS, hS: (tS[0], str(tS[1]) + str(hS)),
-    'str-match?': lambda tS, hS: (tS[0], str(tS[1]) in str(hS)),
-    'str-split': lambda tS, hS: (tS[0], hS.split(tS[1]) if isinstance(hS, str) else hS),
-    # LIST OPERATIONS
-    'concat': lambda tL, hL: (tL[0], tL[1] + hL),
-    'reverse': lambda t, hL: (t, list(reversed(hL))),
-    'first': lambda t, hL: (t, hL[0]),
-    'rest': lambda t, hL: (t, hL[1:]),
-    'last': lambda t, hL: (t, hL[-1]),
-    'index': lambda tI, hL: (tI[0], hL[int(tI[1])]),
-    'member?': lambda t, hL: (t[0], t[1] in hL),
-    'sum': lambda t, hL: (t, sum(hL)),
-    'length': lambda t, h: (t, len(h)),  # polymorphic: works on lists, strings, etc.
-    'product': lambda t, hL: (t, math.prod(hL)),
-    # DICTIONARY
-    'dict-new': lambda *s: (s, {}),
-    'dict-store': lambda tDC, h: (tDC[0][0], (tDC[0][1].__setitem__(tDC[1], h) or tDC[0][1])),
-    'dict-fetch': lambda tD, hC: (tD[0], tD[1][hC]),
-}
+## ARITHMETIC
+def op_add(b: num, a: num) -> num: return b + a
+def op_sub(b: num, a: num) -> num: return b - a
+def op_neg(x: num) -> num: return -x
+def op_abs(x: num) -> num: return abs(x)
+def op_sign(x: num) -> num: return (x > 0) - (x < 0)
+def op_min(b: num, a: num) -> num: return min(b, a)
+def op_max(b: num, a: num) -> num: return max(b, a)
+def op_mul(b: num, a: num) -> num: return b * a
+def op_div(b: num, a: num) -> num: return b / a
+def op_rem(b: num, a: num) -> num: return b % a
+def op_equal_q(b: Any, a: Any) -> bool: return b == a
+def op_differ_q(b: Any, a: Any) -> bool: return b != a
+## BOOLEAN LOGIC
+def op_gt(b: num, a: num) -> bool: return b > a
+def op_gte(b: num, a: num) -> bool: return b >= a
+def op_lt(b: num, a: num) -> bool: return b < a
+def op_lte(b: num, a: num) -> bool: return b <= a
+def op_and(b: bool, a: bool) -> bool: return b and a
+def op_or(b: bool, a: bool) -> bool: return b or a
+def op_not(x: bool) -> bool: return not x
+def op_xor(b: Any, a: Any) -> Any: return b ^ a
+## DATA & INTROSPECTION
+def op_null_q(x: Any) -> bool: return (len(x) if isinstance(x, (list, str)) else x) == 0
+def op_small_q(x: Any) -> bool: return (len(x) if isinstance(x, (list, str)) else x) < 2
+def op_sametype_q(b: Any, a: Any) -> bool: return type(b) == type(a)
+def op_integer_q(x: Any) -> bool: return isinstance(x, int)
+def op_float_q(x: Any) -> bool: return isinstance(x, float)
+def op_list_q(x: Any) -> bool: return isinstance(x, list)
+def op_string_q(x: Any) -> bool: return isinstance(x, str)
+def op_boolean_q(x: Any) -> bool: return isinstance(x, bool)
+## LIST MANIPULATION
+def op_cons(b: Any, a: list) -> list: return [b] + a
+def op_append(b: Any, a: list) -> list: return a + [b]
+def op_remove(b: list, a: Any) -> list: return [x for x in b if x != a]
+def op_take(b: list, a: int) -> list: return b[:a]
+def op_drop(b: list, a: int) -> list: return b[a:]
+def op_uncons(x: list) -> tuple[Any, list]: return (x[0], x[1:])
+def op_concat(b: list, a: list) -> list: return b + a
+def op_reverse(x: list) -> list: return list(reversed(x))
+def op_first(x: list) -> Any: return x[0]
+def op_rest(x: list) -> list: return x[1:]
+def op_last(x: list) -> Any: return x[-1]
+def op_index(b: int, a: list) -> Any: return a[int(b)]
+def op_member_q(b: Any, a: list) -> bool: return b in a
+def op_length(x: Any) -> int: return len(x)
+def op_sum(x: list) -> num: return sum(x)
+def op_product(x: list) -> num: return math.prod(x)
+# STACK OPERATIONS
+def op_swap(b: Any, a: Any) -> tuple[Any, Any]: return (a, b)
+def op_pop(_: Any) -> None: return None
+def op_dup(x: Any) -> tuple[Any, Any]: return (x, x)
+def op_stack(*s: Any) -> list: return stack_to_list(s)
+def op_unstack(x: list) -> tuple: return list_to_stack(x)
+def op_stack_size(*s: Any) -> int: return len(stack_to_list(s))
+# INPUT/OUTPUT
+def op_id(x: Any) -> Any: return x
+def op_put_b(x: Any) -> None: print('\033[97m' + _format_item(x, width=120) + '\033[0m')
+def op_assert_b(x: bool) -> None: assert x
+def op_raise_b(x: Any) -> None: raise x
+# STRING MANIPULATION
+def op_str_concat(b: Any, a: Any) -> str: return str(b) + str(a)
+def op_str_match_q(b: Any, a: Any) -> bool: return str(b) in str(a)
+def op_str_split(b: Any, a: Any) -> Any: return a.split(b) if isinstance(a, str) else a
+# DICTIONARIES (mutable)
+def dict_new() -> dict: return {}
+def dict_store(d: dict, k: bytes, v: Any) -> dict: return d.__setitem__(k, v) or d
+def dict_fetch(d: dict, k: bytes) -> Any: return d[k]
+
 
 CONSTANTS = {
     'true': True,
@@ -383,8 +370,8 @@ def compile_body(tokens: list, library={}, meta={}):
             (stack, (output, meta)) = stack
         elif token in COMBINATORS:
             output.append(COMB(token, mt))
-        elif token in FUNCTIONS:
-            output.append(FUNC(token, mt))
+        elif token in CONSTANTS:
+            output.append(CONSTANTS[token])
         elif token in library:
             if isinstance(library[token], tuple):
                 prg, mt['body'] = library[token]
@@ -399,8 +386,8 @@ def compile_body(tokens: list, library={}, meta={}):
             output.append(int(token))
         elif len(token) > 1 and token.count('.') == 1 and token.count('-') <= 1 and token.lstrip('-').replace('.', '').isdigit():
             output.append(float(token))
-        elif token in CONSTANTS:
-            output.append(CONSTANTS[token])
+        elif (op := FUNC(token, mt)):
+            output.append(op)
         else:
             exc = NameError(f"Unknown instruction `{token}`.")
             exc.token = token
@@ -410,51 +397,154 @@ def compile_body(tokens: list, library={}, meta={}):
     return output, meta
 
 
+_FUNCTION_ALIASES = {
+    '+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '%': 'rem',
+    '>': 'gt', '>=': 'gte', '<': 'lt', '<=': 'lte',
+    '=': 'equal?', '!=': 'differ?', 'size': 'length',
+}
+
+def FUNC(x, meta={}):
+    x = _FUNCTION_ALIASES.get(x, x)
+    if x not in FUNCTIONS:
+        op_fns = {k: v for k, v in globals().items() if k.startswith('op_')}
+        _name = 'op_'+x.replace('-', '_').replace('!', '_b').replace('?', '_q')
+        FUNCTIONS[x] = _make_wrapper(op_fns[_name], x) if _name in op_fns else None
+    if (fn := FUNCTIONS[x]) is None: return None
+    return Operation(Operation.FUNCTION, fn, x, meta)
+
+def COMB(x, meta={}):
+    return Operation(Operation.COMBINATOR, COMBINATORS[x], x, meta)
+
+def EXEC(x, prg, meta={}):
+    return Operation(Operation.EXECUTE, prg, x, meta)
+
+
 _FUNCTION_SIGNATURES = {}
 
-def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
-    """Check if operations can execute on stack. Only built-in functions currently."""
-    if not stack or stack == tuple():
-        return False, f"`{op.name}` needs at least 1 item on the stack, but stack is empty."
+def _normalize_expected_type(tp):
+    if tp is inspect._empty or tp is Any: return None
+    if tp is num: return (int, float)
+    return tp if isinstance(tp, type) or isinstance(tp, tuple) else None
 
-    tail, head = stack
-    if op.name in ("i", "dip") and not isinstance(head, list):
-        return False, f"`{op.name}` requires a quotation as list as top item on the stack."
+def get_stack_effects(fn: Callable, name: str | None = None) -> dict:
+    if name in _FUNCTION_SIGNATURES:
+        return _FUNCTION_SIGNATURES[name]
+
+    sig = inspect.signature(fn)
+    params = list(sig.parameters.values())
+    has_varargs = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params)
+    positional = [p for p in params if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+
+    ret_ann = sig.return_annotation
+    returns_none = (ret_ann is inspect.Signature.empty or ret_ann is type(None) or ret_ann is None)
+    returns_tuple = (ret_ann is tuple or get_origin(ret_ann) is tuple)
+
+    if returns_none:
+        outputs: list = []
+    else:
+        if not returns_tuple: ret_ann = (ret_ann,)
+        outputs = [_normalize_expected_type(t) for t in list(get_args(ret_ann))]
+    replace_stack = name in {'unstack'}  # Single exception allowed to do this.
+
+    meta = {
+        'arity': -1 if (has_varargs and len(positional) == 0) else len(positional),
+        'valency': -1 if replace_stack else (0 if returns_none else (len(outputs) if returns_tuple else 1)),
+        'inputs': list(reversed([_normalize_expected_type(p.annotation) for p in positional])),
+        'outputs': list(reversed(outputs)),
+    }
+    _FUNCTION_SIGNATURES[name] = meta
+    return meta
+
+def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
+    """Check if operation can execute on stack using inferred stack effects."""
+    # Special cases for combinators and runtime hazards that don't come from signature
+    if op.type == Operation.COMBINATOR and op.name in ("i", "dip"):
+        if not stack or stack == tuple():
+            return False, f"`{op.name}` needs at least 1 item on the stack, but stack is empty."
+        _, head = stack
+        if not isinstance(head, (list, tuple)):
+            return False, f"`{op.name}` requires a quotation as list as top item on the stack."
+        return True, ""
+
+    # Division by zero guard for division, as binary int/float op.
+    if op.name in ('div', '/') and stack and stack != tuple():
+        _, head = stack
+        if head == 0:
+            return False, f"`{op.name}` would divide by zero and cause a runtime exception."
 
     if op.type != Operation.FUNCTION: return True, ""
-    if op.name not in _FUNCTION_SIGNATURES:
-        sig = list(inspect.signature(op.ptr).parameters.values())
-        if len(sig) == 1 and sig[0].kind == inspect.Parameter.VAR_POSITIONAL:
-            _FUNCTION_SIGNATURES[op.name] = {'variadic': True}
-        elif len(sig) == 2:
-            tail_param, head_param = sig[0].name, sig[1].name
-            needs_two_items = tail_param not in ('t', 'tail', '_') or any(c in tail_param for c in ['0', '1'])
-            type_map = {'I': (int, 'int'), 'L': (list, 'list'), 'S': (str, 'str'), 'C': (bytes, 'symbol'),
-                        'B': (bool, 'bool'), 'A': (None, 'any'), 'D': (dict, 'dict')}
-            head_type, tail_type = None, None
-            for suffix, (expected_type, type_name) in type_map.items():
-                if head_param.endswith(suffix): head_type = (expected_type, type_name)
-                if tail_param.endswith(suffix): tail_type = (expected_type, type_name)
-            _FUNCTION_SIGNATURES[op.name] = {'needs_two_items': needs_two_items,
-                                   'head_type': head_type, 'tail_type': tail_type}
-        else:
-            raise NotImplementedError(f"Unexpected function signature for `{op.name}`: {sig}")
-    
-    sig_info = _FUNCTION_SIGNATURES[op.name]
-    if sig_info.get('variadic'):
-        return True, ""
-    # Non-variadic functions are always technically two-parameter form (tail, head).
-    if sig_info['needs_two_items'] and tail == tuple():
-        return False, f"`{op.name}` needs at least 2 items on the stack, but only 1 available."
-    if sig_info['head_type']:
-        expected_type, type_name = sig_info['head_type']
-        if expected_type and not isinstance(head, expected_type):
-            return False, f"`{op.name}` expects {type_name} on top of stack, got {type(head).__name__}."
-    if sig_info['tail_type'] and sig_info['needs_two_items'] and len(tail) == 2:
-        expected_type, type_name = sig_info['tail_type']
-        if expected_type and not isinstance(tail[1], expected_type):
-            return False, f"`{op.name}` expects {type_name} as second item, got {type(tail[1]).__name__}."
+
+    eff = get_stack_effects(None, op.name)
+    inputs = eff['inputs']
+    items = stack_to_list(stack)
+    depth = len(items)
+    if depth < len(inputs):
+        need = len(inputs)
+        return False, f"`{op.name}` needs at least {need} item(s) on the stack, but {depth} available."
+
+    # Type checks from top downward
+    for i, expected_type in enumerate(inputs):
+        if expected_type is None: continue
+        actual = items[i]
+        if not isinstance(actual, expected_type):
+            type_name = expected_type.__name__ if hasattr(expected_type, '__name__') else str(expected_type)
+            return False, f"`{op.name}` expects {type_name} at position {i+1} from top, got {type(actual).__name__}."
+
+    # Extra semantic guard for 'index' bounds when types look correct
+    if op.name == 'index' and len(items) >= 2 and isinstance(items[0], (list, str)) and isinstance(items[1], int):
+        idx, seq = items[1], items[0]
+        if not (0 <= int(idx) < len(seq)):
+            return False, f"`{op.name}` would index a list out ouf bounds."
+
     return True, ""
+
+
+def _make_wrapper(fn: Callable, name) -> Callable:
+    meta = get_stack_effects(fn, name)
+    arity = meta['arity']
+    valency = meta['valency']
+
+    # Build a small result pusher using valency
+    if valency == -1:
+        def push(_, res): return res
+    elif valency == 0:
+        def push(base, _): return base
+    elif valency == 1:
+        def push(base, res): return (base, res)
+    else:
+        def push(base, res):
+            for v in res: base = (base, v)
+            return base
+
+    # Whole-stack reader, non-consuming
+    if arity == -1:
+        def w_n(stk: tuple):
+            res = fn(*stk)
+            return push(stk, res)
+        return w_n
+    elif arity == 1:
+        def w_1(stk: tuple):
+            base, a = stk
+            res = fn(a)
+            return push(base, res)
+        return w_1
+    elif arity == 2:
+        def w_2(stk: tuple):
+            t1, a = stk
+            base, b = t1
+            res = fn(b, a)
+            return push(base, res)
+        return w_2
+
+    def w_x(stk: tuple):
+        args = ()
+        base = stk
+        for _ in range(arity):
+            base, h = base
+            args = (h,) + args
+        res = fn(*args)
+        return push(base, res)
+    return w_x
 
 
 def interpret_step(program, stack, library={}):
@@ -470,7 +560,7 @@ def interpret_step(program, stack, library={}):
 
     match op.type:
         case Operation.FUNCTION:
-            stack = op.ptr(*stack)
+            stack = op.ptr(stack)
         case Operation.COMBINATOR:
             stack = op.ptr(op, program, *stack, library=library)
         case Operation.EXECUTE:
@@ -517,6 +607,7 @@ def interpret(program: list, stack=None, library={}, verbosity=0, validate=False
             tb_lines = traceback.format_exc().split('\n')
             print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n', file=sys.stderr)
             print_source_lines(op, library, file=sys.stderr)
+            traceback.print_exc()
             return
 
     if verbosity > 0:
