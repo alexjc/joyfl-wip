@@ -15,21 +15,22 @@ import readline
 import traceback
 import collections
 
-from typing import Any, Callable, get_origin, get_args
+from types import UnionType
+from typing import Any, Callable, get_origin, get_args, TypeVar
 import click
 
 
-class stack(list): pass
+class stack_list(list): pass
 
 
-def stack_to_list(stk):
+def stack_to_list(stk: tuple) -> stack_list:
     result = []
     while stk:
         stk, head = stk
         result.append(head)
-    return stack(result)
+    return stack_list(result)
 
-def list_to_stack(values, base=None):
+def list_to_stack(values: list, base=None) -> tuple:
     stack = tuple() if base is None else base
     for value in reversed(values):
         stack = (stack, value)
@@ -42,7 +43,7 @@ def _write_without_ansi(write_fn):
     return lambda text: write_fn(ansi_re.sub('', text))
 
 def _format_item(it, width=None, indent=0):
-    if (is_stack := isinstance(it, stack)) or isinstance(it, list):
+    if (is_stack := isinstance(it, stack_list)) or isinstance(it, list):
         items = reversed(it) if is_stack else it
         lhs, rhs = ('<', '>') if is_stack else ('[', ']')
         formatted_items = [_format_item(i, width, indent + 4) for i in items]
@@ -200,9 +201,10 @@ def op_length(x: Any) -> int: return len(x)
 def op_sum(x: list) -> num: return sum(x)
 def op_product(x: list) -> num: return math.prod(x)
 # STACK OPERATIONS
-def op_swap(b: Any, a: Any) -> tuple[Any, Any]: return (a, b)
+X, Y = (TypeVar(v, bound=Any) for v in ('X', 'Y'))
+def op_swap(b: Y, a: X) -> tuple[X, Y]: return (a, b)
+def op_dup(x: X) -> tuple[X, X]: return (x, x)
 def op_pop(_: Any) -> None: return None
-def op_dup(x: Any) -> tuple[Any, Any]: return (x, x)
 def op_stack(*s: Any) -> list: return stack_to_list(s)
 def op_unstack(x: list) -> tuple: return list_to_stack(x)
 def op_stack_size(*s: Any) -> int: return len(stack_to_list(s))
@@ -212,13 +214,14 @@ def op_put_b(x: Any) -> None: print('\033[97m' + _format_item(x, width=120) + '\
 def op_assert_b(x: bool) -> None: assert x
 def op_raise_b(x: Any) -> None: raise x
 # STRING MANIPULATION
-def op_str_concat(b: Any, a: Any) -> str: return str(b) + str(a)
-def op_str_match_q(b: Any, a: Any) -> bool: return str(b) in str(a)
-def op_str_split(b: Any, a: Any) -> Any: return a.split(b) if isinstance(a, str) else a
+def op_str_concat(b: str, a: str) -> str: return str(b) + str(a)
+def op_str_contains_q(b: str, a: str) -> bool: return str(b) in str(a)
+def op_str_split(b: str, a: str) -> Any: return a.split(b)
 # DICTIONARIES (mutable)
-def dict_new() -> dict: return {}
-def dict_store(d: dict, k: bytes, v: Any) -> dict: return d.__setitem__(k, v) or d
-def dict_fetch(d: dict, k: bytes) -> Any: return d[k]
+def op_dict_new() -> dict: return {}
+def op_dict_store(d: dict, k: bytes, v: Any) -> dict: return d.__setitem__(k, v) or d
+def op_dict_fetch(d: dict, k: bytes) -> Any: return d[k]
+
 
 
 CONSTANTS = {
@@ -422,9 +425,10 @@ def EXEC(x, prg, meta={}):
 _FUNCTION_SIGNATURES = {}
 
 def _normalize_expected_type(tp):
-    if tp is inspect._empty or tp is Any: return None
-    if tp is num: return (int, float)
-    return tp if isinstance(tp, type) or isinstance(tp, tuple) else None
+    if tp is inspect._empty: assert False
+    if tp is Any: return Any
+    if isinstance(tp, TypeVar): return tp
+    return tp if isinstance(tp, (type, tuple, UnionType)) else 'UNK'
 
 def get_stack_effects(fn: Callable, name: str | None = None) -> dict:
     if name in _FUNCTION_SIGNATURES:
@@ -442,8 +446,8 @@ def get_stack_effects(fn: Callable, name: str | None = None) -> dict:
     if returns_none:
         outputs: list = []
     else:
-        if not returns_tuple: ret_ann = (ret_ann,)
-        outputs = [_normalize_expected_type(t) for t in list(get_args(ret_ann))]
+        ret_ann = get_args(ret_ann) if returns_tuple else (ret_ann,)
+        outputs = [_normalize_expected_type(t) for t in ret_ann]
     replace_stack = name in {'unstack'}  # Single exception allowed to do this.
 
     meta = {
@@ -484,7 +488,8 @@ def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
 
     # Type checks from top downward
     for i, expected_type in enumerate(inputs):
-        if expected_type is None: continue
+        if isinstance(expected_type, TypeVar): expected_type = expected_type.__bound__
+        if expected_type in (Any, None): continue
         actual = items[i]
         if not isinstance(actual, expected_type):
             type_name = expected_type.__name__ if hasattr(expected_type, '__name__') else str(expected_type)
@@ -519,31 +524,25 @@ def _make_wrapper(fn: Callable, name) -> Callable:
     # Whole-stack reader, non-consuming
     if arity == -1:
         def w_n(stk: tuple):
-            res = fn(*stk)
-            return push(stk, res)
+            return push(stk, fn(*stk))
         return w_n
     elif arity == 1:
         def w_1(stk: tuple):
             base, a = stk
-            res = fn(a)
-            return push(base, res)
+            return push(base, fn(a))
         return w_1
     elif arity == 2:
         def w_2(stk: tuple):
-            t1, a = stk
-            base, b = t1
-            res = fn(b, a)
-            return push(base, res)
+            (base, b), a = stk
+            return push(base, fn(b, a))
         return w_2
 
     def w_x(stk: tuple):
-        args = ()
-        base = stk
+        args, base = (), stk
         for _ in range(arity):
             base, h = base
             args = (h,) + args
-        res = fn(*args)
-        return push(base, res)
+        return push(base, fn(*args))
     return w_x
 
 
