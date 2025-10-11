@@ -15,6 +15,7 @@ import readline
 import traceback
 import collections
 
+from fractions import Fraction
 from types import UnionType
 from typing import Any, Callable, get_origin, get_args, TypeVar
 import click
@@ -242,7 +243,7 @@ stack_effect: COLON LPAREN stack_pattern ARROW stack_pattern RPAREN
 stack_pattern: stack_item*
 stack_item: NAME | LSQB stack_pattern RSQB
 
-?term: (NAME | FLOAT | INTEGER | CHAR | STRING | LBRACE CHAR_OR_INT* RBRACE | LSQB term RSQB)*
+?term: (NAME | FLOAT | INTEGER | FRACTION | CHAR | STRING | LBRACE CHAR_OR_INT* RBRACE | LSQB term RSQB)*
 
 // COMMENTS
 COMMENT.11: "#" /[^\r\n]*/
@@ -255,6 +256,7 @@ SEPARATOR: ";"
 STRING.8: /"(?:[^"\\]|\\.)*"/  
 FLOAT.8: /-?(?:\d+\.\d+)(?:[eE][+-]?\d+)?/
 INTEGER.8: /-?\d+/
+FRACTION.8: /-?\d+⁄-?\d+/
 CHAR.8: /'(?:[^'\[\]\{\}\;\.$\s]+)/
 CHAR_OR_INT: (CHAR | INTEGER)
 EQUALS: "=="
@@ -385,6 +387,8 @@ def compile_body(tokens: list, library={}, meta={}):
             output.append(ast.literal_eval(token))
         elif token.startswith("'"):
             output.append(bytes(token[1:], encoding='utf-8'))
+        elif '⁄' in token[1:-1] and all(ch.isdigit() or ch == '⁄' for ch in token):
+            output.append(Fraction(*map(int, token.split('⁄'))))
         elif token.isdigit() or token[0] == '-' and token[1:].isdigit():
             output.append(int(token))
         elif len(token) > 1 and token.count('.') == 1 and token.count('-') <= 1 and token.lstrip('-').replace('.', '').isdigit():
