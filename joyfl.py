@@ -246,14 +246,14 @@ stack_item: NAME | LSQB stack_pattern RSQB
 ?term: (NAME | FLOAT | INTEGER | FRACTION | CHAR | STRING | LBRACE CHAR_OR_INT* RBRACE | LSQB term RSQB)*
 
 // COMMENTS
-COMMENT.11: "#" /[^\r\n]*/
+COMMENT.11: /#[^\r\n]*/
 MULTILINE_COMMENT.11: /\(\*.*?\*\)/s
 
 // TOKENS
 END.9: "END"
-DOT.9: "."
+DOT.9: /\.(?![A-Za-z0-9!+\-=<>_,?.])/
 SEPARATOR: ";"
-STRING.8: /"(?:[^"\\]|\\.)*"/  
+STRING.8: /"(?:[^"\\]|\\.)*"/
 FLOAT.8: /-?(?:\d+\.\d+)(?:[eE][+-]?\d+)?/
 INTEGER.8: /-?\d+/
 FRACTION.8: /-?\d+⁄-?\d+/
@@ -265,10 +265,10 @@ ARROW: "--"
 LPAREN: "("
 RPAREN: ")"
 LSQB: "["
-RSQB: "]" 
+RSQB: "]"
 LBRACE: "{"
 RBRACE: "}"
-NAME: /[^\s\[\]\\(\){\}\;\.#][A-Za-z0-9!+\-=<>_,?]*/
+NAME: /[^\s\[\]\\(\){\}\;\.\#](?:[A-Za-z0-9!+\-=<>_,?.]*[A-Za-z0-9!+\-=<>_,?])?/
 
 // WHITESPACE
 %import common.WS
