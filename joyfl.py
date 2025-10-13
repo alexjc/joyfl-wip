@@ -58,7 +58,7 @@ def _format_item(it, width=None, indent=0):
             result += item
         result += '\n' + (' ' * indent) + rhs
         return result
-    
+    if isinstance(it, str) and indent > 0: return f'"{it.replace(chr(34), chr(92)+chr(34))}"'
     if isinstance(it, bool): return str(it).lower()
     if isinstance(it, bytes): return str(it)[1:-1]
     return str(it)
@@ -328,7 +328,7 @@ def print_source_lines(op, lib, file=sys.stderr):
         if isinstance(prg, list): return any(_contained_in(k, p) for p in prg)
         return id(op) == id(prg)
 
-    src = [(meta, f'in {k}') for k, (prog, meta) in lib.items() if _contained_in(k, prog)]
+    src = [(meta, k) for k, (prog, meta) in lib.items() if _contained_in(k, prog)]
     for meta, ctx in src + [(op.meta, '')]:
         print(f"\033[97m  File \"{meta['filename']}\", lines {meta['start']}-{meta['finish']}, in {ctx}\033[0m", file=file)
         if (lines := load_source_lines(meta, keyword=op.name, line=op.meta['start'])):
