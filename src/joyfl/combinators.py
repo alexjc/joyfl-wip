@@ -3,7 +3,7 @@
 # joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
 #
 
-from .datatypes import Operation
+from .types import Operation
 from .formatting import show_stack
 from .parser import parse
 

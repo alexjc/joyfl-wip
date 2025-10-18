@@ -6,7 +6,7 @@
 import re
 import sys
 
-from .datatypes import stack_list
+from .types import stack_list
 
 
 def stack_to_list(stk: tuple) -> stack_list:

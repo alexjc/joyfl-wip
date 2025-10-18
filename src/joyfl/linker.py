@@ -8,7 +8,7 @@ from typing import Callable
 from fractions import Fraction
 
 from . import operators
-from .datatypes import Operation
+from .types import Operation
 from .errors import JoyNameError
 from .loader import resolve_module_op, get_python_name
 from .combinators import COMBINATORS

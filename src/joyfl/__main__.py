@@ -10,7 +10,7 @@ import traceback
 
 import click
 
-from .datatypes import Operation
+from .types import Operation
 from .errors import JoyError, JoyParseError, JoyNameError, JoyIncompleteParse
 
 from .parser import parse
