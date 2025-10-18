@@ -12,7 +12,7 @@ from .types import Operation
 from .errors import JoyNameError
 from .loader import resolve_module_op, get_python_name
 from .combinators import COMBINATORS
-from .validating import get_stack_effects, _FUNCTION_SIGNATURES
+from .loader import get_stack_effects, _FUNCTION_SIGNATURES
 
 
 CONSTANTS = {

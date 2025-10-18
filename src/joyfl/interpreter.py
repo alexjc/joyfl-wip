@@ -12,7 +12,7 @@ from typing import Any, TypeVar
 from .types import Operation
 from .parser import print_source_lines
 from .formatting import show_stack, show_program_and_stack, stack_to_list
-from .validating import get_stack_effects
+from .loader import get_stack_effects
 
 
 def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
