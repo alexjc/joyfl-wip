@@ -4,6 +4,7 @@
 #
 
 import os
+from .errors import JoyNameError
 
 
 _LIB_MODULES = {}
@@ -38,5 +39,4 @@ def resolve_module_op(ns: str, name: str):
     # All modules require an explicit registry of operators defined.
     for w in getattr(py_module, '__operators__', []):
         if getattr(w, '__name__', '') == py_name: return w
-    exc = NameError(f"Operation `{py_name}` not found in library `{ns}`."); exc.token = f"{ns}.{name}"
-    raise exc
+    raise JoyNameError(f"Operation `{py_name}` not found in library `{ns}`.", token=f"{ns}.{name}")

@@ -9,6 +9,7 @@ from fractions import Fraction
 
 from . import operators
 from .datatypes import Operation
+from .errors import JoyNameError
 from .loader import resolve_module_op, get_python_name
 from .combinators import COMBINATORS
 from .validating import get_stack_effects, _FUNCTION_SIGNATURES
@@ -41,8 +42,7 @@ def FUNC(x, meta={}):
     elif x not in FUNCTIONS:
         op_fns = {k: getattr(operators, k) for k in dir(operators) if k.startswith('op_')}
         if (_name := get_python_name(x)) and _name not in op_fns:
-            exc = NameError(f"Operation `{x}` not found in built-in library as `{_name}()`."); exc.token = x
-            raise exc
+            raise JoyNameError(f"Operation `{x}` not found in built-in library as `{_name}()`.", token=x)
         FUNCTIONS[x] = _make_wrapper(op_fns[_name], x)
 
     _FUNCTION_SIGNATURES.setdefault(y, _FUNCTION_SIGNATURES[x])
@@ -139,9 +139,7 @@ def link_body(tokens: list, library={}, meta={}):
         elif (op := FUNC(token, mt)):
             output.append(op)
         else:
-            exc = NameError(f"Unknown instruction `{token}`.")
-            exc.token = token
-            raise exc
+            raise JoyNameError(f"Unknown instruction `{token}`.", token=token)
 
     assert len(stack) == 0
     return output, meta

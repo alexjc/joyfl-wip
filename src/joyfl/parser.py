@@ -8,6 +8,7 @@ import sys
 import textwrap
 
 import lark
+from .errors import JoyParseError, JoyIncompleteParse
 
 
 GRAMMAR = r"""?start: (library | term DOT)*
@@ -90,7 +91,13 @@ def parse(source: str, start='start', filename=None):
             for ch in it.children:
                 yield from _traverse(ch)
 
-    tree = parser.parse(source)
+    try:
+        tree = parser.parse(source)
+    except lark.exceptions.ParseError as exc:
+        def attr(k): return getattr(exc, k, None)
+        token_val = getattr(attr('token'), 'value', None)
+        error_class = JoyIncompleteParse if token_val == '' else JoyParseError
+        raise error_class(str(exc), filename=filename, line=attr('line'), column=attr('column'), token=token_val) from None
     yield from _traverse(tree)
 
 def load_source_lines(meta, keyword, line):

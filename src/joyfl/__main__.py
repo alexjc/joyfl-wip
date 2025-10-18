@@ -8,11 +8,10 @@ import time
 import readline
 import traceback
 
-import lark
 import click
 
-
 from .datatypes import Operation
+from .errors import JoyError, JoyParseError, JoyNameError, JoyIncompleteParse
 
 from .parser import parse
 from .linker import link_body
@@ -69,12 +68,12 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
         if not is_repl and not ignore: sys.exit(1)
 
     def _handle_exception(exc, filename, source, is_repl=False):
-        if isinstance(exc, lark.exceptions.ParseError):
-            if is_repl and "Unexpected token Token('$END', '')" in str(exc): return True
-            context = format_parse_error_context(filename, exc.line, exc.column, exc.token.value, source=source)
+        if isinstance(exc, JoyParseError):
+            if is_repl and isinstance(exc, JoyIncompleteParse): return True
+            context = format_parse_error_context(filename, exc.line, exc.column, exc.token, source=source)
             context += f"\n\033[90m{str(exc).replace(chr(10), ' ').replace(chr(9), ' ')}\033[0m\n"
             _maybe_fatal_error("SYNTAX ERROR.", f"Parsing `\033[97m{filename}\033[0m` caused a problem!", type(exc).__name__, context, is_repl)
-        elif isinstance(exc, NameError) and hasattr(exc, 'token'):
+        elif isinstance(exc, JoyNameError) and getattr(exc, 'token', None) is not None:
             _maybe_fatal_error("LINKER ERROR.", f"Term `\033[1;97m{exc.token}\033[0m` from `\033[97m{filename}\033[0m` was not found in library!", type(exc).__name__, '', is_repl)
         elif isinstance(exc, Exception):
             detail = f"Execution failed: {exc}" if is_repl else f"Source `\033[97m{filename}\033[0m` failed during execution!\n{traceback.format_exc()}"
@@ -93,7 +92,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
         try:
             r, globals_ = execute(source, globals_=globals_, filename=filename, verbosity=verbose, validate=validate, stats=total_stats)
             (r is None and ((failure := True) or (not ignore and sys.exit(1))))
-        except (NameError, lark.exceptions.ParseError, Exception) as exc:
+        except (JoyError, Exception) as exc:
             _handle_exception(exc, filename, source, is_repl=False)
 
     if total_stats and len(items) > 0:
@@ -119,7 +118,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
                     stack, globals_ = execute(source, globals_=globals_, filename='<REPL>', verbosity=verbose, validate=validate)
                     if stack: print("\033[90m>>>\033[0m", format_item(stack[-1]))
                     source = ""
-                except (NameError, lark.exceptions.ParseError, Exception) as exc:
+                except (JoyError, Exception) as exc:
                     if not _handle_exception(exc, '<REPL>', source, is_repl=True):
                         source = ""
 
