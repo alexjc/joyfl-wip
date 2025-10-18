@@ -404,6 +404,40 @@ def compile_body(tokens: list, library={}, meta={}):
     return output, meta
 
 
+_LIB_MODULES = {}
+
+def get_python_name(joy_name):
+    return 'op_'+joy_name.replace('-', '_').replace('!', '_b').replace('?', '_q')
+
+def _load_library_module(ns: str):
+    if ns in _LIB_MODULES: return _LIB_MODULES[ns]
+
+    mod_path = os.path.join(os.path.dirname(__file__), 'libs', f'_{ns}.py')
+    if not os.path.isfile(mod_path):
+        _LIB_MODULES[ns] = None
+        return None
+
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(f"joyfl.libs._{ns}", mod_path)
+    if spec is None or spec.loader is None:
+        _LIB_MODULES[ns] = None
+        return None
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _LIB_MODULES[ns] = module
+    return module
+
+def _resolve_module_op(ns: str, name: str):
+    py_module = _load_library_module(ns)
+    if not (py_name := get_python_name(name)) and py_module is None: return None
+    # All modules require an explicit registry of operators defined.
+    for w in getattr(py_module, '__operators__', []):
+        if getattr(w, '__name__', '') == py_name: return w
+    exc = NameError(f"Operation `{py_name}` not found in library `{ns}`."); exc.token = f"{ns}.{name}"
+    raise exc
+
+
 _FUNCTION_ALIASES = {
     '+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '%': 'rem',
     '>': 'gt', '>=': 'gte', '<': 'lt', '<=': 'lte',
@@ -411,13 +445,21 @@ _FUNCTION_ALIASES = {
 }
 
 def FUNC(x, meta={}):
-    x = _FUNCTION_ALIASES.get(x, x)
-    if x not in FUNCTIONS:
+    y, x = x, _FUNCTION_ALIASES.get(x, x)
+
+    # Handle external libraries with dotted names.
+    if '.' in x:
+        if x not in FUNCTIONS:
+            ns, local = x.split('.', 1)
+            fn = _resolve_module_op(ns, local)
+            FUNCTIONS[x] = _make_wrapper(fn, x) if fn else None
+    # Built-in operations defined above.
+    elif x not in FUNCTIONS:
         op_fns = {k: v for k, v in globals().items() if k.startswith('op_')}
-        _name = 'op_'+x.replace('-', '_').replace('!', '_b').replace('?', '_q')
-        FUNCTIONS[x] = _make_wrapper(op_fns[_name], x) if _name in op_fns else None
+        FUNCTIONS[x] = _make_wrapper(op_fns[_name], x) if (_name := get_python_name(x)) in op_fns else None
+
     if (fn := FUNCTIONS[x]) is None: return None
-    return Operation(Operation.FUNCTION, fn, x, meta)
+    return Operation(Operation.FUNCTION, fn, y, meta)
 
 def COMB(x, meta={}):
     return Operation(Operation.COMBINATOR, COMBINATORS[x], x, meta)
