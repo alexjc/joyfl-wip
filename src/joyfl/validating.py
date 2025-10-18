@@ -16,9 +16,10 @@ def _normalize_expected_type(tp):
     if isinstance(tp, TypeVar): return tp
     return tp if isinstance(tp, (type, tuple, UnionType)) else 'UNK'
 
-def get_stack_effects(fn: Callable, name: str | None = None) -> dict:
+def get_stack_effects(*, fn: Callable = None, name: str = None) -> dict:
     if name in _FUNCTION_SIGNATURES:
         return _FUNCTION_SIGNATURES[name]
+    assert fn is not None, "Must specify the function if name is not in signature cache."
 
     sig = inspect.signature(fn)
     params = list(sig.parameters.values())

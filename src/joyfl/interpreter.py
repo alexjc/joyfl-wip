@@ -34,7 +34,7 @@ def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
 
     if op.type != Operation.FUNCTION: return True, ""
 
-    eff = get_stack_effects(None, op.name)
+    eff = get_stack_effects(name=op.name)
     inputs = eff['inputs']
     items = stack_to_list(stack)
     depth = len(items)

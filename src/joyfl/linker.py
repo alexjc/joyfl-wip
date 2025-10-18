@@ -11,7 +11,7 @@ from . import operators
 from .datatypes import Operation
 from .loader import resolve_module_op, get_python_name
 from .combinators import COMBINATORS
-from .validating import get_stack_effects
+from .validating import get_stack_effects, _FUNCTION_SIGNATURES
 
 
 CONSTANTS = {
@@ -35,13 +35,17 @@ def FUNC(x, meta={}):
     if '.' in x:
         if x not in FUNCTIONS:
             ns, local = x.split('.', 1)
-            fn = resolve_module_op(ns, local)
-            FUNCTIONS[x] = _make_wrapper(fn, x) if fn else None
+            mod_fn = resolve_module_op(ns, local)
+            FUNCTIONS[x] = _make_wrapper(mod_fn, x) if fn else None
     # Built-in operations defined above.
     elif x not in FUNCTIONS:
         op_fns = {k: getattr(operators, k) for k in dir(operators) if k.startswith('op_')}
-        FUNCTIONS[x] = _make_wrapper(op_fns[_name], x) if (_name := get_python_name(x)) in op_fns else None
+        if (_name := get_python_name(x)) and _name not in op_fns:
+            exc = NameError(f"Operation `{x}` not found in built-in library as `{_name}()`."); exc.token = x
+            raise exc
+        FUNCTIONS[x] = _make_wrapper(op_fns[_name], x)
 
+    _FUNCTION_SIGNATURES.setdefault(y, _FUNCTION_SIGNATURES[x])
     if (fn := FUNCTIONS[x]) is None: return None
     return Operation(Operation.FUNCTION, fn, y, meta)
 
@@ -52,8 +56,8 @@ def EXEC(x, prg, meta={}):
     return Operation(Operation.EXECUTE, prg, x, meta)
 
 
-def _make_wrapper(fn: Callable, name) -> Callable:
-    meta = get_stack_effects(fn, name)
+def _make_wrapper(fn: Callable, name: str) -> Callable:
+    meta = get_stack_effects(fn=fn, name=name)
     arity = meta['arity']
     valency = meta['valency']
 
