@@ -15,13 +15,9 @@ from .combinators import COMBINATORS
 from .loader import get_stack_effects, _FUNCTION_SIGNATURES
 
 
-CONSTANTS = {
-    'true': True,
-    'false': False,
-}
-
-FUNCTIONS = {
-}
+CONSTANTS = {'true': True, 'false': False, '...': '...', '|||': '|||', '~~~': '~~~', '+++': '+++', '***': '***'}
+FUNCTIONS = {}
+FACTORIES = {}
 
 _FUNCTION_ALIASES = {
     '+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '%': 'rem',
@@ -120,6 +116,10 @@ def link_body(tokens: list, library={}, meta={}):
             output.append(COMB(token, mt))
         elif token in CONSTANTS:
             output.append(CONSTANTS[token])
+        elif (name := token.lstrip('@')) in FACTORIES or token.startswith('@'):
+            if not (factory := FACTORIES.get(name)):
+                raise JoyNameError(f"Unknown factory `{token}`.", token=token)
+            output.append(factory())
         elif token in library:
             if isinstance(library[token], tuple):
                 prg, mt['body'] = library[token]
