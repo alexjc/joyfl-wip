@@ -8,7 +8,7 @@ from typing import Callable
 from fractions import Fraction
 
 from . import operators
-from .types import Operation
+from .types import Operation, Stack
 from .errors import JoyNameError
 from .loader import resolve_module_op, get_python_name
 from .combinators import COMBINATORS
@@ -63,29 +63,29 @@ def _make_wrapper(fn: Callable, name: str) -> Callable:
     elif valency == 0:
         def push(base, _): return base
     elif valency == 1:
-        def push(base, res): return (base, res)
+        def push(base, res): return Stack(base, res)
     else:
         def push(base, res):
-            for v in res: base = (base, v)
+            for v in res: base = Stack(base, v)
             return base
 
     # Whole-stack reader, non-consuming
     if arity == -1:
-        def w_n(stk: tuple):
+        def w_n(stk: Stack):
             return push(stk, fn(*stk))
         return w_n
     elif arity == 1:
-        def w_1(stk: tuple):
+        def w_1(stk: Stack):
             base, a = stk
             return push(base, fn(a))
         return w_1
     elif arity == 2:
-        def w_2(stk: tuple):
+        def w_2(stk: Stack):
             (base, b), a = stk
             return push(base, fn(b, a))
         return w_2
 
-    def w_x(stk: tuple):
+    def w_x(stk: Stack):
         args, base = (), stk
         for _ in range(arity):
             base, h = base

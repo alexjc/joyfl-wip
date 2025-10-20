@@ -10,10 +10,12 @@ import traceback
 
 import click
 
+from .types import nil
 from .errors import JoyError, JoyParseError, JoyNameError, JoyIncompleteParse
-from . import api as J
 from .parser import format_parse_error_context
 from .formatting import write_without_ansi, format_item
+
+from . import api as J
 
 
 
@@ -87,7 +89,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
 
                 try:
                     stack = J.run(source, filename='<REPL>', verbosity=verbose, validate=validate, library=globals_)
-                    if stack: print("\033[90m>>>\033[0m", format_item(stack[-1]))
+                    if stack is not nil: print("\033[90m>>>\033[0m", format_item(stack[-1]))
                     source = ""
                 except (JoyError, Exception) as exc:
                     if not _handle_exception(exc, '<REPL>', source, is_repl=True):

@@ -3,7 +3,7 @@
 from typing import Any, Callable
 from collections import deque
 
-from .types import Operation
+from .types import Operation, Stack, nil
 from .parser import parse
 from .linker import link_body, FUNC, FUNCTIONS, FACTORIES, _make_wrapper
 from .interpreter import interpret, can_execute as _can_execute, interpret_step as _interpret_step
@@ -38,19 +38,19 @@ class Runtime:
         return isinstance(x, list)
 
     # Execution ───────────────────────────────────────────────────────────────────────────────
-    def run(self, program: str, stack: tuple | None = None, filename: str | None = None,
+    def run(self, program: str, stack: Stack | None = None, filename: str | None = None,
             verbosity: int = 0, validate: bool = False, stats: dict | None = None,
-            library: dict | None = None) -> tuple:
+            library: dict | None = None) -> Stack:
         _, out = self._execute(program, filename, verbosity, validate, stats, library)
         return out
 
-    def can_step(self, op: Operation, stack: tuple) -> tuple[bool, str]:
+    def can_step(self, op: Operation, stack: Stack) -> tuple[bool, str]:
         return _can_execute(op, stack)
 
     def do_step(self, queue, stack):
         return _interpret_step(deque(queue), stack)
 
-    def apply(self, op_or_name: Operation | str, stack: tuple) -> tuple:
+    def apply(self, op_or_name: Operation | str, stack: Stack) -> Stack:
         op = op_or_name if isinstance(op_or_name, Operation) else self.operation(op_or_name)
         stack, _ = self.do_step([op], stack)
         return stack
@@ -71,7 +71,7 @@ class Runtime:
                 out = interpret(prg, library=env, verbosity=verbosity, validate=validate, stats=stats)
             elif typ == 'library':
                 self._populate_definitions(env, data['public'])
-                out = tuple()
+                out = nil
         return env, out
 
     def _populate_definitions(self, env: dict, public_defs: list):
@@ -103,8 +103,8 @@ class Runtime:
     def list_operations(self) -> dict[str, dict]:
         return dict(self._signatures)
 
-    def to_stack(self, values: list) -> tuple:
+    def to_stack(self, values: list) -> Stack:
         return _list_to_stack(values)
 
-    def from_stack(self, stack: tuple) -> list:
+    def from_stack(self, stack: Stack) -> list:
         return _stack_to_list(stack)

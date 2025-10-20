@@ -9,17 +9,17 @@ import collections
 
 from typing import Any, TypeVar
 
-from .types import Operation
+from .types import Operation, Stack, nil
 from .parser import print_source_lines
 from .formatting import show_stack, show_program_and_stack, stack_to_list
 from .loader import get_stack_effects
 
 
-def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
+def can_execute(op: Operation, stack: Stack, library={}) -> tuple[bool, str]:
     """Check if operation can execute on stack using inferred stack effects."""
     # Special cases for combinators and runtime hazards that don't come from signature
     if op.type == Operation.COMBINATOR and op.name in ("i", "dip"):
-        if not stack or stack == tuple():
+        if stack is nil:
             return False, f"`{op.name}` needs at least 1 item on the stack, but stack is empty."
         _, head = stack
         if not isinstance(head, (list, tuple)):
@@ -27,7 +27,7 @@ def can_execute(op: Operation, stack: tuple, library={}) -> tuple[bool, str]:
         return True, ""
 
     # Division by zero guard for division, as binary int/float op.
-    if op.name in ('div', '/') and stack and stack != tuple():
+    if op.name in ('div', '/') and stack is not nil:
         _, head = stack
         if head == 0:
             return False, f"`{op.name}` would divide by zero and cause a runtime exception."
@@ -68,7 +68,7 @@ def interpret_step(program, stack, library={}):
         if op == b'BREAK': input()
 
     if not isinstance(op, Operation):
-        stack = (stack, op)
+        stack = Stack(stack, op)
         return stack, program
 
     match op.type:
@@ -83,7 +83,7 @@ def interpret_step(program, stack, library={}):
 
 
 def interpret(program: list, stack=None, library={}, verbosity=0, validate=False, stats=None):
-    stack = tuple() if stack is None else stack
+    stack = nil if stack is None else stack
     program = collections.deque(program)
 
     def is_notable(op):

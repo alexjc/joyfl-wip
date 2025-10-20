@@ -1,9 +1,7 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
-from .types import Operation
+from .types import Operation, Stack, nil
 from .runtime import Runtime
-
-nil = tuple()
 
 _RUNTIME = Runtime()
 

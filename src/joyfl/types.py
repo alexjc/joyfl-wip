@@ -1,6 +1,15 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
+from collections import namedtuple
+
 class stack_list(list): pass
+
+
+# Stack type is a namedtuple to save memory, yet provide tail/head accessors.
+Stack = namedtuple('Stack', ['tail', 'head'])
+
+# All checks for empty stack must be done by comparing to this.
+nil = Stack(None, None)
 
 
 class Operation:
@@ -19,5 +28,3 @@ class Operation:
 
     def __repr__(self):
         return f"{self.name}"
-
-

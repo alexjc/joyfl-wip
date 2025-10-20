@@ -6,20 +6,20 @@
 import re
 import sys
 
-from .types import stack_list
+from .types import stack_list, Stack, nil
 
 
-def stack_to_list(stk: tuple) -> stack_list:
+def stack_to_list(stk: Stack) -> stack_list:
     result = []
-    while stk:
+    while stk is not nil:
         stk, head = stk
         result.append(head)
     return stack_list(result)
 
-def list_to_stack(values: list, base=None) -> tuple:
-    stack = tuple() if base is None else base
+def list_to_stack(values: list, base=None) -> Stack:
+    stack = nil if base is None else base
     for value in reversed(values):
-        stack = (stack, value)
+        stack = Stack(stack, value)
     return stack
 
 
@@ -49,7 +49,7 @@ def format_item(it, width=None, indent=0):
     return str(it)
 
 def show_stack(stack, width=72, end='\n', file=None):
-    stack_str = ' '.join(format_item(s) for s in reversed(stack_to_list(stack))) if stack else '∅'
+    stack_str = ' '.join(format_item(s) for s in reversed(stack_to_list(stack))) if stack is not nil else '∅'
     if len(stack_str) > (width or sys.maxsize):
         stack_str = '… ' + stack_str[-width+2:]
     print(f"{stack_str:>{width}}" if width else stack_str, end=end, file=file)
