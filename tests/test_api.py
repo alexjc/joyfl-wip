@@ -53,3 +53,12 @@ def test_type_checks_and_predicates():
     assert not J.is_quotation(J.operation('add'))
     assert J.is_quotation(J.quotation(1, 2))
     assert not J.is_operation(J.quotation(1, 2))
+
+
+def test_operation_type_exposed():
+    op = J.operation('add')
+    assert isinstance(op, J.Operation)
+    # Test that Operation type can be used in annotations/metadata
+    outputs = [J.Operation]
+    assert J.Operation in outputs
+

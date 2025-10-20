@@ -1,6 +1,7 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
 from typing import Any, Callable
+from collections import deque
 
 from .types import Operation
 from .parser import parse
@@ -47,7 +48,12 @@ class Runtime:
         return _can_execute(op, stack)
 
     def do_step(self, queue, stack):
-        return _interpret_step(queue, stack)
+        return _interpret_step(deque(queue), stack)
+
+    def apply(self, op_or_name: Operation | str, stack: tuple) -> tuple:
+        op = op_or_name if isinstance(op_or_name, Operation) else self.operation(op_or_name)
+        stack, _ = self.do_step([op], stack)
+        return stack
 
     # Loading ─────────────────────────────────────────────────────────────────────────────────
     def load(self, source: str, filename: str | None = None, validate: bool = False,

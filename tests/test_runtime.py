@@ -14,11 +14,47 @@ def test_runtime_interpret_step_manual_queue():
     assert rt.from_stack(stack) == [5]
 
 
+def test_runtime_do_step_accepts_list():
+    rt = Runtime()
+    # Test that do_step accepts list and internally coerces to deque
+    queue = [2, 3, rt.operation('add')]
+    stack = rt.to_stack([])
+    while queue:
+        stack, queue = rt.do_step(queue, stack)
+    assert rt.from_stack(stack) == [5]
+
+
+def test_runtime_do_step_accepts_tuple():
+    rt = Runtime()
+    # Test that do_step accepts tuple and internally coerces to deque
+    queue = (4, 5, rt.operation('mul'))
+    stack = rt.to_stack([])
+    while queue:
+        stack, queue = rt.do_step(queue, stack)
+    assert rt.from_stack(stack) == [20]
+
+
+def test_runtime_apply():
+    rt = Runtime()
+    stack = rt.to_stack([3, 4])
+    
+    # Test with both Operation object and string name
+    for op in [rt.operation('add'), 'add']:
+        result = rt.apply(op, stack)
+        assert rt.from_stack(result) == [7]
+    
+    # Test chaining
+    stack = rt.to_stack([5])
+    stack = rt.apply('dup', stack)
+    stack = rt.apply(rt.operation('mul'), stack)
+    assert rt.from_stack(stack) == [25]
+
+
 def test_runtime_library_persistence_across_runs():
     rt = Runtime()
     lib = {}
-    # define word in library module
-    src_def = """
+
+    src_def = """\
 MODULE test
 
 PUBLIC
@@ -32,8 +68,7 @@ END.
 
 def test_runtime_register_operation_without_annotations():
     rt = Runtime()
-    def quadruple(x):
-        return x * 4
+    def quadruple(x): return x * 4
     rt.register_operation('quadruple', quadruple)
     stack = rt.run("8 quadruple .")
     assert rt.from_stack(stack) == [32]
@@ -41,16 +76,15 @@ def test_runtime_register_operation_without_annotations():
 
 def test_runtime_register_operation_with_explicit_signature():
     rt = Runtime()
-    def custom_op(a, b):
-        return a + b, a * b
-    
+    def custom_op(a, b): return a + b, a * b
+
     rt.register_operation('custom-op', custom_op, signature={
         'arity': 2,
         'valency': 2,
         'inputs': [int, int],
         'outputs': [int, int]
     })
-    
+
     stack = rt.run("3 4 custom-op .")
     assert rt.from_stack(stack) == [12, 7]
     
@@ -71,5 +105,3 @@ def test_runtime_register_factory():
     result = rt.from_stack(stack)[0]
     assert isinstance(result, TestObject)
     assert result.value == 42
-
-
