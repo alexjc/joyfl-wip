@@ -83,7 +83,8 @@ class Runtime:
                 del env[key]; raise
 
     # Registration ────────────────────────────────────────────────────────────────────────────
-    def register_operation(self, name: str, func: Callable) -> None:
+    def register_operation(self, name: str, func: Callable, signature: dict | None = None) -> None:
+        if signature is not None: self._signatures[name] = signature
         self._functions[name] = _make_wrapper(func, name)
 
     def register_factory(self, name: str, factory: Callable[[], Any]) -> None:

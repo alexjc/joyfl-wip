@@ -20,6 +20,13 @@ def test_register_operation_and_run():
     assert J.from_stack(stack) == [5]
 
 
+def test_register_operation_without_annotations():
+    def double(x): return x * 2
+    J.register_operation('double', double)
+    stack = J.run("5 double .")
+    assert J.from_stack(stack) == [10]
+
+
 def test_register_factory_and_run():
     J.register_factory('x', lambda: {'x': 1})
     stack = J.run("@x .")

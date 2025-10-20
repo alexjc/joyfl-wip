@@ -48,7 +48,7 @@ def resolve_module_op(ns: str, name: str):
 _FUNCTION_SIGNATURES = {}
 
 def _normalize_expected_type(tp):
-    if tp is inspect._empty: assert False
+    if tp is inspect._empty: return Any
     if tp is Any: return Any
     if isinstance(tp, TypeVar): return tp
     return tp if isinstance(tp, (type, tuple, UnionType)) else 'UNK'
@@ -64,11 +64,14 @@ def get_stack_effects(*, fn: Callable = None, name: str = None) -> dict:
     positional = [p for p in params if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
 
     ret_ann = sig.return_annotation
-    returns_none = (ret_ann is inspect.Signature.empty or ret_ann is type(None) or ret_ann is None)
+    returns_none = (ret_ann is type(None) or ret_ann is None)
     returns_tuple = (ret_ann is tuple or get_origin(ret_ann) is tuple)
 
     if returns_none:
         outputs: list = []
+    elif ret_ann is inspect.Signature.empty:
+        # No annotation: assume single return value of Any type
+        outputs = [Any]
     else:
         ret_ann = get_args(ret_ann) if returns_tuple else (ret_ann,)
         outputs = [_normalize_expected_type(t) for t in ret_ann]
