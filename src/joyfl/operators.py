@@ -6,6 +6,7 @@
 import math
 from typing import Any, TypeVar
 
+from .errors import JoyAssertionError
 from .formatting import stack_to_list, list_to_stack, format_item
 
 
@@ -70,7 +71,8 @@ def op_stack_size(*s: Any) -> int: return len(stack_to_list(s))
 # INPUT/OUTPUT
 def op_id(x: Any) -> Any: return x
 def op_put_b(x: Any) -> None: print('\033[97m' + format_item(x, width=120) + '\033[0m')
-def op_assert_b(x: bool) -> None: assert x
+def op_assert_b(x: bool) -> None:
+    if not x: raise JoyAssertionError
 def op_raise_b(x: Any) -> None: raise x
 # STRING MANIPULATION
 def op_str_concat(b: str, a: str) -> str: return str(b) + str(a)

@@ -26,3 +26,6 @@ class JoyNameError(JoyError, NameError):
 
 class JoyRuntimeError(JoyError, RuntimeError):
     pass
+
+class JoyAssertionError(JoyError, AssertionError):
+    pass

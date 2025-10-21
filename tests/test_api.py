@@ -1,5 +1,7 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
+import pytest
+
 import joyfl.api as J
 
 
@@ -62,3 +64,7 @@ def test_operation_type_exposed():
     outputs = [J.Operation]
     assert J.Operation in outputs
 
+
+def test_assertion_bubbles_through_api():
+    with pytest.raises(J.JoyAssertionError):
+        J.run("false assert! .")

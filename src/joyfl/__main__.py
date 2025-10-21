@@ -11,9 +11,9 @@ import traceback
 import click
 
 from .types import nil
-from .errors import JoyError, JoyParseError, JoyNameError, JoyIncompleteParse
-from .parser import format_parse_error_context
-from .formatting import write_without_ansi, format_item
+from .errors import JoyError, JoyParseError, JoyNameError, JoyIncompleteParse, JoyAssertionError
+from .parser import format_parse_error_context, print_source_lines
+from .formatting import write_without_ansi, format_item, show_stack
 
 from . import api as J
 
@@ -48,10 +48,19 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
             _maybe_fatal_error("SYNTAX ERROR.", f"Parsing `\033[97m{filename}\033[0m` caused a problem!", type(exc).__name__, context, is_repl)
         elif isinstance(exc, JoyNameError) and getattr(exc, 'token', None) is not None:
             _maybe_fatal_error("LINKER ERROR.", f"Term `\033[1;97m{exc.token}\033[0m` from `\033[97m{filename}\033[0m` was not found in library!", type(exc).__name__, '', is_repl)
+        elif isinstance(exc, JoyAssertionError):
+            print(f'\033[30;43m ASSERTION FAILED. \033[0m Function \033[1;97m`{exc.joy_op}`\033[0m raised an error.\n', file=sys.stderr)
+            print_source_lines(exc.joy_op, J.library.quotations, file=sys.stderr)
+            print(f'\033[1;33m  Stack content is\033[0;33m\n    ', end='', file=sys.stderr)
+            show_stack(exc.joy_stack, width=None, file=sys.stderr); print('\033[0m', file=sys.stderr)
+            if not is_repl and not ignore: sys.exit(1)
         elif isinstance(exc, Exception):
-            detail = f"Execution failed: {exc}" if is_repl else f"Source `\033[97m{filename}\033[0m` failed during execution!\n{traceback.format_exc()}"
-            _maybe_fatal_error("UNKNOWN ERROR." if not is_repl else "ERROR.", detail, None, '', is_repl)
-            if is_repl and verbose > 0: traceback.print_exc()
+            print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{exc.joy_op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n', file=sys.stderr)
+            tb_lines = traceback.format_exc().split('\n')
+            print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n', file=sys.stderr)
+            print_source_lines(exc.joy_op, J.library.quotations, file=sys.stderr)
+            traceback.print_exc()
+            if not is_repl and not ignore: sys.exit(1)
         return False
 
     J.load(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy', validate=validate)
