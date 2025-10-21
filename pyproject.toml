@@ -1,0 +1,21 @@
+[build-system]
+requires=["uv_build"]
+build-backend = "uv_build"
+
+[project]
+name = "joyfl"
+version = "0.4-dev"
+description = "A minimal but elegant dialect of Joy, a functional / concatenative stack language."
+requires-python = ">=3.10"
+dependencies = [
+    "click",
+    "lark",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+[project.scripts]
+test = "pytest:main"
