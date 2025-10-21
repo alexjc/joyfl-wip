@@ -45,17 +45,13 @@ def resolve_module_op(ns: str, name: str):
     raise JoyNameError(f"Operation `{py_name}` not found in library `{ns}`.", token=f"{ns}.{name}")
 
 
-_FUNCTION_SIGNATURES = {}
-
 def _normalize_expected_type(tp):
     if tp is inspect._empty: return Any
     if tp is Any: return Any
     if isinstance(tp, TypeVar): return tp
     return tp if isinstance(tp, (type, tuple, UnionType)) else 'UNK'
 
-def get_stack_effects(*, fn: Callable = None, name: str = None) -> dict:
-    if name in _FUNCTION_SIGNATURES:
-        return _FUNCTION_SIGNATURES[name]
+def get_stack_effects(*, fn: Callable, name: str = None) -> dict:
     assert fn is not None, "Must specify the function if name is not in signature cache."
 
     sig = inspect.signature(fn)
@@ -83,5 +79,4 @@ def get_stack_effects(*, fn: Callable = None, name: str = None) -> dict:
         'inputs': list(reversed([_normalize_expected_type(p.annotation) for p in positional])),
         'outputs': list(reversed(outputs)),
     }
-    _FUNCTION_SIGNATURES[name] = meta
     return meta

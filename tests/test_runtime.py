@@ -52,7 +52,6 @@ def test_runtime_apply():
 
 def test_runtime_library_persistence_across_runs():
     rt = Runtime()
-    lib = {}
 
     src_def = """\
 MODULE test
@@ -61,8 +60,8 @@ PUBLIC
     five == 5 ;
 END.
 """
-    lib = rt.load(src_def, filename='<LIB>', library=lib)
-    stack = rt.run("five 3 + .", filename='<USE>', library=lib)
+    rt.load(src_def, filename='<LIB>')
+    stack = rt.run("five 3 + .", filename='<USE>')
     assert rt.from_stack(stack) == [8]
 
 
@@ -76,14 +75,10 @@ def test_runtime_register_operation_without_annotations():
 
 def test_runtime_register_operation_with_explicit_signature():
     rt = Runtime()
-    def custom_op(a, b): return a + b, a * b
+    def custom_op(a: int, b: int) -> tuple[int, int]: 
+        return a + b, a * b
 
-    rt.register_operation('custom-op', custom_op, signature={
-        'arity': 2,
-        'valency': 2,
-        'inputs': [int, int],
-        'outputs': [int, int]
-    })
+    rt.register_operation('custom-op', custom_op)
 
     stack = rt.run("3 4 custom-op .")
     assert rt.from_stack(stack) == [12, 7]

@@ -54,7 +54,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
             if is_repl and verbose > 0: traceback.print_exc()
         return False
 
-    globals_ = J.load(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy', validate=validate)
+    J.load(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy', validate=validate)
 
     # Build execution list: files first, then commands.
     items = [(f.read(), f.name) for f in files]
@@ -63,7 +63,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
     total_stats = {'steps': 0, 'start': time.time()} if stats else None
     for source, filename in items:
         try:
-            r = J.run(source, filename=filename, verbosity=verbose, validate=validate, stats=total_stats, library=globals_)
+            r = J.run(source, filename=filename, verbosity=verbose, validate=validate, stats=total_stats)
             (r is None and ((failure := True) or (not ignore and sys.exit(1))))
         except (JoyError, Exception) as exc:
             _handle_exception(exc, filename, source, is_repl=False)
@@ -88,7 +88,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
                 source += line + " "
 
                 try:
-                    stack = J.run(source, filename='<REPL>', verbosity=verbose, validate=validate, library=globals_)
+                    stack = J.run(source, filename='<REPL>', verbosity=verbose, validate=validate)
                     if stack is not nil: print("\033[90m>>>\033[0m", format_item(stack[-1]))
                     source = ""
                 except (JoyError, Exception) as exc:

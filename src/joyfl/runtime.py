@@ -5,28 +5,23 @@ from collections import deque
 
 from .types import Operation, Stack, nil
 from .parser import parse
-from .linker import link_body, FUNC, FUNCTIONS, FACTORIES, _make_wrapper
-from .interpreter import interpret, can_execute as _can_execute, interpret_step as _interpret_step
-from .loader import get_stack_effects, _FUNCTION_SIGNATURES
+from .linker import link_body
+from .library import Library
+from .builtins import load_builtins_library
 from .formatting import list_to_stack as _list_to_stack, stack_to_list as _stack_to_list
+from .interpreter import interpret, can_execute, interpret_step
 
 
 class Runtime:
-    """Minimal runtime facade focused on embedding and extension.
+    """Minimal runtime facade focused on embedding and extension."""
 
-    Notes:
-    - For now, this uses the module-level registries in linker (`FUNCTIONS`, `FACTORIES`, `_FUNCTION_SIGNATURES`).
-      Registry isolation can be added later without changing the public API.
-    """
-
-    def __init__(self):
-        self._functions = FUNCTIONS
-        self._factories = FACTORIES
-        self._signatures = _FUNCTION_SIGNATURES
+    def __init__(self, library: Library | None = None):
+        self.library = library or load_builtins_library()
 
     # Assembly ────────────────────────────────────────────────────────────────────────────────
     def operation(self, name: str) -> Operation:
-        return FUNC(name)
+        fn = self.library.get_function(name)
+        return Operation(Operation.FUNCTION, fn, name, {})
 
     def quotation(self, *items) -> list:
         return list(items)
@@ -39,16 +34,14 @@ class Runtime:
 
     # Execution ───────────────────────────────────────────────────────────────────────────────
     def run(self, program: str, stack: Stack | None = None, filename: str | None = None,
-            verbosity: int = 0, validate: bool = False, stats: dict | None = None,
-            library: dict | None = None) -> Stack:
-        _, out = self._execute(program, filename, verbosity, validate, stats, library)
-        return out
+            verbosity: int = 0, validate: bool = False, stats: dict | None = None) -> Stack:
+        return self._execute(program, filename, verbosity, validate, stats)
 
     def can_step(self, op: Operation, stack: Stack) -> tuple[bool, str]:
-        return _can_execute(op, stack)
+        return can_execute(op, stack)
 
     def do_step(self, queue, stack):
-        return _interpret_step(deque(queue), stack)
+        return interpret_step(deque(queue), stack, self.library)
 
     def apply(self, op_or_name: Operation | str, stack: Stack) -> Stack:
         op = op_or_name if isinstance(op_or_name, Operation) else self.operation(op_or_name)
@@ -56,52 +49,50 @@ class Runtime:
         return stack
 
     # Loading ─────────────────────────────────────────────────────────────────────────────────
-    def load(self, source: str, filename: str | None = None, validate: bool = False,
-             library: dict | None = None) -> dict:
-        env, _ = self._execute(source, filename, 0, validate, None, library)
-        return env
+    def load(self, source: str, filename: str | None = None, validate: bool = False) -> None:
+        self._execute(source, filename, 0, validate, None)
 
     def _execute(self, source: str, filename: str | None, verbosity: int,
-                 validate: bool, stats: dict | None, library: dict | None):
-        env = library or {}
+                 validate: bool, stats: dict | None):
         out = None
         for typ, data in parse(source, filename=filename):
             if typ == 'term':
-                prg, _ = link_body(data, library=env, meta={'filename': filename, 'lines': (2**32, -1)})
-                out = interpret(prg, library=env, verbosity=verbosity, validate=validate, stats=stats)
+                prg, _ = link_body(data, meta={'filename': filename, 'lines': (2**32, -1)}, lib=self.library)
+                out = interpret(prg, lib=self.library, verbosity=verbosity, validate=validate, stats=stats)
             elif typ == 'library':
-                self._populate_definitions(env, data['public'])
+                self._populate_definitions(data['public'])
                 out = nil
-        return env, out
+        return out
 
-    def _populate_definitions(self, env: dict, public_defs: list):
+    def _populate_definitions(self, public_defs: list):
         def _fill_recursive_calls(n):
             if isinstance(n, list): return [_fill_recursive_calls(t) for t in n]
             if isinstance(n, Operation) and n.ptr is None: n.ptr = prg
             return n
 
         for (_, key, mt), tokens in public_defs:
-            env[key] = None
+            self.library.quotations[key] = (None, {})  # placeholder for forward/self references
             try:
-                prg, meta = link_body(tokens, library=env, meta=mt)
-                env[key] = (_fill_recursive_calls(prg), meta)
+                prg, meta = link_body(tokens, meta=mt, lib=self.library)
+                self.library.quotations[key] = (_fill_recursive_calls(prg), meta)
             except:
-                del env[key]; raise
+                del self.library.quotations[key]
+                raise
 
     # Registration ────────────────────────────────────────────────────────────────────────────
-    def register_operation(self, name: str, func: Callable, signature: dict | None = None) -> None:
-        if signature is not None: self._signatures[name] = signature
-        self._functions[name] = _make_wrapper(func, name)
+    def register_operation(self, name: str, func: Callable) -> None:
+        self.library.add_function(name, func)
 
     def register_factory(self, name: str, factory: Callable[[], Any]) -> None:
-        self._factories[name] = factory
+        self.library.factories[name] = factory
 
     # Introspection ───────────────────────────────────────────────────────────────────────────
     def get_signature(self, name: str) -> dict:
-        return get_stack_effects(name=name)
+        fn = self.library.get_function(name)
+        return fn.__joy_meta__
 
     def list_operations(self) -> dict[str, dict]:
-        return dict(self._signatures)
+        return {n: self.library.get_function(n).__joy_meta__ for n in self.library.functions.keys()}
 
     def to_stack(self, values: list) -> Stack:
         return _list_to_stack(values)
