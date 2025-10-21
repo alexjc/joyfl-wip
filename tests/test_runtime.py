@@ -100,3 +100,15 @@ def test_runtime_register_factory():
     result = rt.from_stack(stack)[0]
     assert isinstance(result, TestObject)
     assert result.value == 42
+
+
+def test_runtime_preserves_quotations_and_order():
+    rt = Runtime()
+    cases = [
+        ("[1 2 3]", [[1, 2, 3]]),
+        ("[1 [2 3] 4]", [[1, [2, 3], 4]]),
+        ("[1 2] [3 [4]]", [[3, [4]], [1, 2]]),
+    ]
+    for code, expected in cases:
+        stack = rt.run(code + " .")
+        assert rt.from_stack(stack) == expected
