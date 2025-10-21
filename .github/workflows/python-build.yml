@@ -1,0 +1,43 @@
+# Python Package
+#
+# Automatically build and test the package for supported Python 3.x versions.
+#
+
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python: ['3.10', '3.12']
+        include:
+          - os: windows-latest
+            python: '3.12'
+          - os: macos-latest
+            python: '3.12'
+    name: Python ${{ matrix.python }} ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install
+        uses: astral-sh/setup-uv@v6
+        with:
+            python-version: ${{ matrix.python }}
+
+      - name: Setup
+        run: uv sync --all-extras --dev
+
+      - name: Build
+        run: uv build
+
+      - name: Test
+        run: uv run test
