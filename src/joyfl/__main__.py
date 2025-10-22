@@ -7,6 +7,7 @@ import sys
 import time
 import readline
 import traceback
+from pathlib import Path
 
 import click
 
@@ -16,7 +17,6 @@ from .parser import format_parse_error_context, print_source_lines
 from .formatting import write_without_ansi, format_item, show_stack
 
 from . import api as J
-
 
 
 @click.command()
@@ -63,7 +63,10 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
             if not is_repl and not ignore: sys.exit(1)
         return False
 
-    J.load(open('libs/stdlib.joy', 'r', encoding='utf-8').read(), filename='libs/stdlib.joy', validate=validate)
+    stdlib_path = Path(__file__).resolve().parent.parent / 'libs' / 'stdlib.joy'
+    if not stdlib_path.exists():
+        stdlib_path = Path('libs/stdlib.joy')
+    J.load(stdlib_path.read_text(encoding='utf-8'), filename='libs/stdlib.joy', validate=validate)
 
     # Build execution list: files first, then commands.
     items = [(f.read(), f.name) for f in files]

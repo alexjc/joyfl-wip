@@ -40,4 +40,4 @@ jobs:
         run: uv build
 
       - name: Test
-        run: uv run test
+        run: uv run pytest
