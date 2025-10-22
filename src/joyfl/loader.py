@@ -19,21 +19,23 @@ def get_python_name(joy_name):
 def load_library_module(ns: str):
     if ns in _LIB_MODULES: return _LIB_MODULES[ns]
 
-    mod_path = os.path.join(os.path.dirname(__file__), 'libs', f'_{ns}.py')
-    if not os.path.isfile(mod_path):
-        _LIB_MODULES[ns] = None
-        return None
+    # Default search is libs/_{ns}.py, packaged with the distribution.
+    candidates = [(os.path.join(os.path.dirname(__file__), 'libs', f'_{ns}.py'), f"joyfl.libs._{ns}")]
+    # Also search user specified JOY_PATH environment variable.
+    candidates += [
+        (os.path.join(os.path.expanduser(os.path.expandvars(base)), f'{ns}.py'), f"joyfl.ext.{ns}")
+        for base in [p for p in os.environ.get('JOY_PATH', '').split(os.pathsep) if p]
+    ]
 
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(f"joyfl.libs._{ns}", mod_path)
-    if spec is None or spec.loader is None:
-        _LIB_MODULES[ns] = None
-        return None
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    _LIB_MODULES[ns] = module
-    return module
+    import importlib.util as importer
+    for mod_path, mod_name in candidates:
+        if not os.path.isfile(mod_path): continue
+        spec = importer.spec_from_file_location(mod_name, mod_path)
+        if spec and spec.loader:
+            module = importer.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        _LIB_MODULES[ns] = module
+        return module
 
 
 def resolve_module_op(ns: str, name: str):

@@ -50,8 +50,8 @@ def link_body(tokens: list, meta: dict, lib: Library):
             output.append(int(token))
         elif len(token) > 1 and token.count('.') == 1 and token.count('-') <= 1 and token.lstrip('-').replace('.', '').isdigit():
             output.append(float(token))
-        elif (name := lib.aliases.get(token, token)) in lib.functions:
-            output.append(Operation(Operation.FUNCTION, lib.get_function(name), name, mt))
+        elif (fn := lib.get_function(token)):
+            output.append(Operation(Operation.FUNCTION, fn, token, mt))
         else:
             raise JoyNameError(f"Unknown instruction `{token}`.", token=token)
 

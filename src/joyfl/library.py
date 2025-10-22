@@ -5,7 +5,7 @@ from typing import Any, Callable
 
 from .types import Stack
 from .errors import JoyNameError
-from .loader import get_stack_effects
+from .loader import get_stack_effects, resolve_module_op
 
 
 @dataclass
@@ -32,9 +32,15 @@ class Library:
 
     def get_function(self, name: str) -> Callable[..., Any]:
         resolved_name = self.aliases.get(name, name)
-        if (fn := self.functions.get(resolved_name)) is None:
-            raise JoyNameError(f"Operation `{name}` not found in library.", token=name)
-        return fn
+        if (fn := self.functions.get(resolved_name)) is not None:
+            return fn
+        if '.' in resolved_name:
+            py_fn = resolve_module_op(*resolved_name.split('.', 1))
+            fn, meta = _make_wrapper(py_fn, resolved_name)
+            fn.__joy_meta__ = meta
+            self.functions[resolved_name] = fn
+            return fn
+        raise JoyNameError(f"Operation `{name}` not found in library.", token=name)
 
 
 def _make_wrapper(fn: Callable[..., Any], name: str) -> Callable[..., Any]:
