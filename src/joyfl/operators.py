@@ -5,12 +5,13 @@
 
 import math
 from typing import Any, TypeVar
+from fractions import Fraction
 
 from .errors import JoyAssertionError
 from .formatting import stack_to_list, list_to_stack, format_item
 
 
-num = int | float
+num = int | float | Fraction
 
 ## ARITHMETIC
 def op_add(b: num, a: num) -> num: return b + a
