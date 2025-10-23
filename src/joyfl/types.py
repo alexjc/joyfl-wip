@@ -23,6 +23,9 @@ class Operation:
         self.name = name
         self.meta = meta
 
+    def __hash__(self):
+        return hash((self.type, self.ptr, self.name))
+
     def __eq__(self, other):
         return isinstance(other, Operation) and self.type == other.type and self.ptr == other.ptr
 
