@@ -1,11 +1,13 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
-#
-# joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
-#
+
 import lark
 
+
 class JoyError(Exception):
-    pass
+    def __init__(self, message: str = "", *, joy_op=None, joy_meta=None):
+        super().__init__(message)
+        self.joy_op = joy_op
+        self.joy_meta = joy_meta
 
 class JoyParseError(JoyError):
     def __init__(self, message, *, filename=None, line=None, column=None, token=None):
@@ -20,12 +22,21 @@ class JoyIncompleteParse(JoyParseError, lark.exceptions.ParseError):
         super().__init__(message, filename=filename, line=line, column=column, token=token)
 
 class JoyNameError(JoyError, NameError):
-    def __init__(self, message, token=None):
-        super().__init__(message)
+    def __init__(self, message, token=None, *, joy_op=None, joy_meta=None):
+        super().__init__(message, joy_op=joy_op, joy_meta=joy_meta)
         self.token = token
 
 class JoyRuntimeError(JoyError, RuntimeError):
     pass
 
 class JoyAssertionError(JoyError, AssertionError):
+    pass
+
+
+class JoyImportError(JoyError, ImportError):
+    def __init__(self, message, *, joy_op=None, filename=None, joy_meta=None):
+        super().__init__(message, joy_op=joy_op, joy_meta=joy_meta)
+        self.filename = filename
+
+class JoyModuleError(JoyImportError):
     pass

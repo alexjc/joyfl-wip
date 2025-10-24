@@ -1,0 +1,5 @@
+DEFINE
+
+    test        ==  abcdefgh ;
+
+END.

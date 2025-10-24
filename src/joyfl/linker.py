@@ -1,7 +1,4 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
-#
-# joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
-#
 
 import ast
 from fractions import Fraction
@@ -50,10 +47,10 @@ def link_body(tokens: list, meta: dict, lib: Library):
             output.append(int(token))
         elif len(token) > 1 and token.count('.') == 1 and token.count('-') <= 1 and token.lstrip('-').replace('.', '').isdigit():
             output.append(float(token))
-        elif (fn := lib.get_function(token)):
+        elif (fn := lib.get_function(token, meta=mt)):
             output.append(Operation(Operation.FUNCTION, fn, token, mt))
         else:
-            raise JoyNameError(f"Unknown instruction `{token}`.", token=token)
+            raise JoyNameError(f"Unknown instruction `{token}`.", token=token, joy_op=token, joy_meta=mt)
 
     assert len(stack) == 0
     return output, meta

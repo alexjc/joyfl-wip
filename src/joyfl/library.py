@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from .types import Stack
-from .errors import JoyNameError
+from .errors import JoyNameError, JoyImportError
 from .loader import get_stack_effects, resolve_module_op
 
 
@@ -30,17 +30,22 @@ class Library:
         for _, fn in list(self.functions.items()):
             assert hasattr(fn, '__joy_meta__')
 
-    def get_function(self, name: str) -> Callable[..., Any]:
+    def get_function(self, name: str, *, meta: dict | None = None) -> Callable[..., Any]:
         resolved_name = self.aliases.get(name, name)
         if (fn := self.functions.get(resolved_name)) is not None:
             return fn
         if '.' in resolved_name:
-            py_fn = resolve_module_op(*resolved_name.split('.', 1))
+            try:
+                py_fn = resolve_module_op(*resolved_name.split('.', 1))
+            except ImportError as e:
+                raise JoyImportError(str(e), joy_op=resolved_name, joy_meta=meta) from e
+            except JoyNameError as e:
+                raise JoyNameError(e.args[0] if e.args else "Unknown instruction", token=getattr(e, 'token', None) or resolved_name, joy_op=getattr(e, 'joy_op', None) or resolved_name, joy_meta=meta) from e
             fn, meta = _make_wrapper(py_fn, resolved_name)
             fn.__joy_meta__ = meta
             self.functions[resolved_name] = fn
             return fn
-        raise JoyNameError(f"Operation `{name}` not found in library.", token=name)
+        raise JoyNameError(f"Operation `{name}` not found in library.", token=name, joy_op=name, joy_meta=meta)
 
 
 def _make_wrapper(fn: Callable[..., Any], name: str) -> Callable[..., Any]:

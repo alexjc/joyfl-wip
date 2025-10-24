@@ -74,7 +74,7 @@ def parse(source: str, start='start', filename=None):
     def _traverse(it):
         if isinstance(it, lark.Token):
             if it.type not in ('DOT', 'END'):
-                yield 'term', [(it.type, it.value, {'filename': filename})]
+                yield 'term', [next(_flatten(it))]
             return
         assert isinstance(it, lark.Tree)
 
@@ -114,11 +114,15 @@ def print_source_lines(op, lib, file=sys.stderr):
         return id(op) == id(prg)
 
     src = [(meta, k) for k, (prog, meta) in lib.items() if _contained_in(k, prog)]
-    for meta, ctx in src + [(op.meta, '')]:
-        print(f"\033[97m  File \"{meta['filename']}\", lines {meta['start']}-{meta['finish']}, in {ctx}\033[0m", file=file)
-        if (lines := load_source_lines(meta, keyword=op.name, line=op.meta['start'])):
-            print(textwrap.indent(textwrap.dedent(lines), prefix='    '), sep='\n', end='\n\n', file=file)
+    for meta, ctx in src + [(op.meta, op.name)]:
+        print(format_source_lines(meta, ctx), end='\n', file=file)
         break
+
+def format_source_lines(meta: dict, identifier: str) -> str:
+    header = f"\033[97m  File \"{meta['filename']}\", lines {meta['start']}-{meta['finish']}, in {identifier}\033[0m\n"
+    lines = load_source_lines(meta, keyword=identifier, line=meta['start'])
+    return header + (textwrap.indent(textwrap.dedent(lines), prefix='    ') + "\n" if lines else "")
+
 
 def format_parse_error_context(filename, line, column, token_value, source=None):
     lines = source.splitlines(keepends=True) if source else open(filename, 'r').readlines()

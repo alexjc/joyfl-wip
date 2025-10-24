@@ -1,13 +1,10 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
-#
-# joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
-#
 
 import os
 import inspect
 from types import UnionType
 from typing import Any, TypeVar, Callable, get_origin, get_args
-from .errors import JoyNameError
+from .errors import JoyNameError, JoyModuleError
 
 
 _LIB_MODULES = {}
@@ -30,12 +27,13 @@ def load_library_module(ns: str):
     import importlib.util as importer
     for mod_path, mod_name in candidates:
         if not os.path.isfile(mod_path): continue
-        spec = importer.spec_from_file_location(mod_name, mod_path)
+        spec, module = importer.spec_from_file_location(mod_name, mod_path), None
         if spec and spec.loader:
             module = importer.module_from_spec(spec)
             spec.loader.exec_module(module)
         _LIB_MODULES[ns] = module
         return module
+    raise JoyModuleError(f"Module `{ns}` not found.")
 
 
 def resolve_module_op(ns: str, name: str):

@@ -1,0 +1,8 @@
+
+DEFINE
+
+    problem?                ==  false assert! ;
+
+END.
+
+problem?.
