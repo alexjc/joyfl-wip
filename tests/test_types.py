@@ -1,6 +1,8 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
 import sys
+import pytest
+
 import joyfl.api as J
 from joyfl.types import Stack, nil
 
@@ -87,3 +89,25 @@ def test_stack_tuple_compatibility():
     assert len(stack) == 2
     assert len(J.nil) == 2  # Always 2 fields (tail, head)
 
+
+def test_nil_singleton():
+    # Direct construction of (None, None) should be disallowed
+    with pytest.raises(ValueError):
+        Stack(None, None)
+    # The module-level `nil` remains accessible and correct
+    assert nil.tail is None and nil.head is None
+    # Identity check for nil (truthiness is disallowed)
+    assert nil is nil
+    assert Stack(nil, 2) is not nil
+
+
+def test_stack_bool_disallowed():
+    with pytest.raises(TypeError):
+        bool(nil)
+    with pytest.raises(TypeError):
+        bool(Stack(nil, 1))
+
+
+def test_stack_representation():
+    assert repr(nil) == "< nil >"
+    assert repr(J.to_stack([1, 2])) == "< 2 1 >"

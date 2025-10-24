@@ -6,7 +6,35 @@ class stack_list(list): pass
 
 
 # Stack type is a namedtuple to save memory, yet provide tail/head accessors.
-Stack = namedtuple('Stack', ['tail', 'head'])
+class Stack(namedtuple('Stack', ['tail', 'head'])):
+    __slots__ = ()
+    _nil_singleton = None
+
+    def __new__(cls, tail, head):
+        if tail is None and head is None:
+            # Only one singleton creation is allowed, and it's the one just below.
+            if cls._nil_singleton is None:
+                self = super(Stack, cls).__new__(cls, tail, head)
+                cls._nil_singleton = self
+                return self
+            # By convention, all other code should use `nil` explicitly.
+            raise ValueError("Use the canonical `nil` instance for empty stacks")
+        return super(Stack, cls).__new__(cls, tail, head)
+
+    def __repr__(self):
+        if self is nil:
+            return "< nil >"
+        assert self != nil
+
+        items = []
+        current = self
+        while current is not nil:
+            items.append(repr(current.head))
+            current = current.tail
+        return "< " + " ".join(reversed(items)) + " >"
+
+    def __bool__(self):
+        raise TypeError("Stack truth value is ambiguous; compare with `is nil` or `is not nil`.")
 
 # All checks for empty stack must be done by comparing to this.
 nil = Stack(None, None)
