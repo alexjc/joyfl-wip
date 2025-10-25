@@ -31,6 +31,7 @@ PUBLIC
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # Data Structures
 
+    unit            ==  [] cons ;
     pair            ==  [] cons cons ;
     unpair          ==  uncons uncons pop ;
 
@@ -78,8 +79,8 @@ PUBLIC
     *   NOTE:       The flag is consumed, after which teh quatation is inlined with `i`.
     *)
     branch          :   (flag  [then] [else]         -- )
-                    #    false [then] [else] branch  →  else i
-                    #    true  [then] [else] branch  →  then i
+                    #    false [then] [else] branch  →  else
+                    #    true  [then] [else] branch  →  then
                     ==  choice i ;
 
    (*  `nullary` — executes a quotation without affecting the stack, leaving only its result.
@@ -122,13 +123,13 @@ PUBLIC
     *               Uses _separate-results helper to separate results from preserved stack items.
     *)
     
-    unary : ( x [P] -- R )
-          ==  stack rest rest               # save preserved items (excluding arg and quotation)
-              [i] dip                       # run quotation on argument, keep preserved list safe
-              _stack-and-keep-one           # get snapshot of all stack items
-              _separate-results             # separate quotation results from preserved items
-              concat                        # merge preserved and results into single list
-              unstack ;                     # restore all items to stack in correct order
+    unary           : ( x [P] -- R )
+                    ==  stack rest rest               # save preserved items (excluding arg and quotation)
+                        [i] dip                       # run quotation on argument, keep preserved list safe
+                        _stack-and-keep-one           # get snapshot of all stack items
+                        _separate-results             # separate quotation results from preserved items
+                        concat                        # merge preserved and results into single list
+                        unstack ;                     # restore all items to stack in correct order
 
    (*  `ifte` — if/then/else combinator for conditional execution.
     *
