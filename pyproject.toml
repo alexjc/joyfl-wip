@@ -6,6 +6,7 @@ build-backend = "uv_build"
 name = "joyfl"
 version = "0.4-dev"
 description = "A minimal but elegant dialect of Joy, a functional / concatenative stack language."
+readme = { file = "README.rst", content-type = "text/x-rst" }
 requires-python = ">=3.10"
 dependencies = [
     "click",
