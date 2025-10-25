@@ -5,7 +5,6 @@
 
 import sys
 import time
-import readline
 import traceback
 from pathlib import Path
 
@@ -94,6 +93,8 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
 
     # Start REPL if no items were provided or --repl flag was set
     if len(items) == 0 or repl:
+        if sys.platform != "win32": import readline
+
         print('joyfl - Functional stack language REPL; type Ctrl+C to exit.')
         source = ""
 
