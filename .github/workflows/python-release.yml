@@ -5,6 +5,9 @@
 
 name: release
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
@@ -57,6 +60,11 @@ jobs:
       - name: Install (dev)
         run: uv sync --all-extras --dev
 
+      - name: Stage libs into package
+        run: |
+          mkdir -p src/joyfl/libs
+          rsync -a --delete libs/ src/joyfl/libs/
+
       - name: Build dists
         run: uv build
 
@@ -73,6 +81,13 @@ jobs:
           import joyfl
           print(getattr(joyfl, "__version__", "unknown"))
           PY
+          python - <<'PY'
+          import importlib.resources as r
+          p = r.files('joyfl').joinpath('libs/stdlib.joy')
+          print('stdlib exists:', p.is_file())
+          assert p.is_file(), 'missing joyfl/libs/stdlib.joy'
+          PY
+          python -m joyfl -c "'ab 'cd pair ."
 
       - name: Smoke test sdist install and import
         run: |
@@ -84,9 +99,21 @@ jobs:
           import joyfl
           print(getattr(joyfl, "__version__", "unknown"))
           PY
+          python - <<'PY'
+          import importlib.resources as r
+          p = r.files('joyfl').joinpath('libs/stdlib.joy')
+          print('stdlib exists:', p.is_file())
+          assert p.is_file(), 'missing joyfl/libs/stdlib.joy'
+          PY
+          python -m joyfl -c "'ab 'cd pair ."
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - name: Publish GitHub Release assets (tag builds)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: dist
-          path: dist/*
+          tag_name: ${{ github.ref_name }}
+          files: |
+            dist/*.whl
+            dist/*.tar.gz

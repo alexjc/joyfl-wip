@@ -20,6 +20,3 @@ test = [
 
 [project.scripts]
 joyfl = "joyfl.__main__:main"
-
-[tool.uv.build-backend]
-data = ["libs"]

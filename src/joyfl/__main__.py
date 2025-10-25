@@ -68,9 +68,9 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
             if not is_repl and not ignore: sys.exit(1)
         return False
 
-    stdlib_path = Path(__file__).resolve().parent.parent / 'libs' / 'stdlib.joy'
-    if not stdlib_path.exists():
-        stdlib_path = Path('libs/stdlib.joy')
+    base = Path(__file__).resolve().parent
+    candidates = (d / 'libs' / 'stdlib.joy' for d in (base, *base.parents[:2]))
+    stdlib_path = next((p for p in candidates if p.exists()), Path('libs/stdlib.joy'))
     J.load(stdlib_path.read_text(encoding='utf-8'), filename='libs/stdlib.joy', validate=validate)
 
     # Build execution list: files first, then commands.
