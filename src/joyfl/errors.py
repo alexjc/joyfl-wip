@@ -22,9 +22,7 @@ class JoyIncompleteParse(JoyParseError, lark.exceptions.ParseError):
         super().__init__(message, filename=filename, line=line, column=column, token=token)
 
 class JoyNameError(JoyError, NameError):
-    def __init__(self, message, token=None, *, joy_op=None, joy_meta=None):
-        super().__init__(message, joy_op=joy_op, joy_meta=joy_meta)
-        self.token = token
+    pass
 
 class JoyRuntimeError(JoyError, RuntimeError):
     pass

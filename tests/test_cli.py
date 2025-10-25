@@ -62,7 +62,7 @@ def test_cli_import_error_shows_context_and_source():
     out = result.stdout
     assert "IMPORT ERROR." in out
     assert "File \"" in out
-    assert "`errmod.nop`" in out
+    assert "while resolving `errmod`" in out
     assert "errmod.nop ." in out
     assert "lines ?-?" not in out
 
@@ -75,5 +75,5 @@ def test_cli_import_module_not_found():
     assert result.returncode != 0
     out = result.stdout
     assert "IMPORT ERROR." in out
-    assert "while resolving `errmod.nop`" in out
+    assert "while resolving `errmod`" in out
     assert "File \"" in out

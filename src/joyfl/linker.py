@@ -32,7 +32,7 @@ def link_body(tokens: list, meta: dict, lib: Library):
             output.append(lib.constants[token])
         elif (name := token.lstrip('@')) in lib.factories or token.startswith('@'):
             if not (factory := lib.factories.get(name)):
-                raise JoyNameError(f"Unknown factory `{token}`.", token=token)
+                raise JoyNameError(f"Unknown factory `{token}`.", joy_op=token, joy_meta=meta)
             output.append(factory())
         elif token in lib.quotations:
             prg, mt['body'] = lib.quotations[token]
@@ -50,7 +50,7 @@ def link_body(tokens: list, meta: dict, lib: Library):
         elif (fn := lib.get_function(token, meta=mt)):
             output.append(Operation(Operation.FUNCTION, fn, token, mt))
         else:
-            raise JoyNameError(f"Unknown instruction `{token}`.", token=token, joy_op=token, joy_meta=mt)
+            raise JoyNameError(f"Unknown instruction `{token}`.", joy_op=token, joy_meta=mt)
 
     assert len(stack) == 0
     return output, meta

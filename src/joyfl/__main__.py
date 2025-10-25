@@ -46,8 +46,8 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
             context = format_parse_error_context(filename, exc.line, exc.column, exc.token, source=source)
             context += f"\n\033[90m{str(exc).replace(chr(10), ' ').replace(chr(9), ' ')}\033[0m\n"
             _maybe_fatal_error("SYNTAX ERROR.", f"Parsing `\033[97m{filename}\033[0m` caused a problem!", type(exc).__name__, context, is_repl)
-        elif isinstance(exc, JoyNameError) and exc.token is not None:
-            detail = f"Term `\033[1;97m{exc.token}\033[0m` from `\033[97m{filename}\033[0m` was not found in library!"
+        elif isinstance(exc, JoyNameError):
+            detail = f"Term `\033[1;97m{exc.joy_op}\033[0m` from `\033[97m{filename}\033[0m` was not found in library!"
             context = '\n' + format_source_lines(exc.joy_meta, exc.joy_op)
             _maybe_fatal_error("LINKER ERROR.", detail, type(exc).__name__, context, is_repl)
         elif isinstance(exc, JoyAssertionError):
@@ -57,7 +57,7 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
             show_stack(exc.joy_stack, width=None, file=sys.stderr); print('\033[0m', file=sys.stderr)
             if not is_repl and not ignore: sys.exit(1)
         elif isinstance(exc, JoyImportError):
-            detail = f"Importing a library module failed while resolving `{exc.joy_op}`: \033[97m{exc.filename}\033[0m"
+            detail = f"Importing library module failed while resolving `{exc.joy_op}`: \033[97m{exc.filename}\033[0m"
             context = '\n' + format_source_lines(exc.joy_meta, exc.joy_op)
             _maybe_fatal_error("IMPORT ERROR.", detail, type(exc).__name__, context, is_repl)
         elif isinstance(exc, Exception):

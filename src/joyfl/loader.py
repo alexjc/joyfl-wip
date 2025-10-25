@@ -13,7 +13,7 @@ def get_python_name(joy_name):
     return 'op_'+joy_name.replace('-', '_').replace('!', '_b').replace('?', '_q')
 
 
-def load_library_module(ns: str):
+def load_library_module(ns: str, meta: dict):
     if ns in _LIB_MODULES: return _LIB_MODULES[ns]
 
     # Default search is libs/_{ns}.py, packaged with the distribution.
@@ -30,19 +30,22 @@ def load_library_module(ns: str):
         spec, module = importer.spec_from_file_location(mod_name, mod_path), None
         if spec and spec.loader:
             module = importer.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            try:
+                spec.loader.exec_module(module)
+            except (SyntaxError, ImportError, Exception) as e:
+                raise JoyModuleError(str(e), filename=mod_path, joy_op=ns, joy_meta=meta) from e
         _LIB_MODULES[ns] = module
         return module
-    raise JoyModuleError(f"Module `{ns}` not found.")
+    raise JoyModuleError(f"Module `{ns}` not found.", joy_op=ns, joy_meta=meta)
 
 
-def resolve_module_op(ns: str, name: str):
-    py_module = load_library_module(ns)
+def resolve_module_op(ns: str, name: str, *, meta: dict | None = None):
+    py_module = load_library_module(ns, meta=meta)
     if not (py_name := get_python_name(name)) and py_module is None: return None
     # All modules require an explicit registry of operators defined.
     for w in getattr(py_module, '__operators__', []):
         if getattr(w, '__name__', '') == py_name: return w
-    raise JoyNameError(f"Operation `{py_name}` not found in library `{ns}`.", token=f"{ns}.{name}")
+    raise JoyNameError(f"Operation `{py_name}` not found in library `{ns}`.", joy_op=f"{ns}.{name}", joy_meta=meta)
 
 
 def _normalize_expected_type(tp):
