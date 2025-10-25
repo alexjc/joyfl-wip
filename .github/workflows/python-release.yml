@@ -1,0 +1,92 @@
+# Python Release
+#
+# Automatically create package for supported Python 3.x versions.
+#
+
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test ${{ matrix.python }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: uv sync --all-extras --dev
+      - name: Test
+        run: uv run pytest -q
+
+  build:
+    name: Build distributions and validate
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compute version from tag
+        id: version
+        shell: bash
+        run: |
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set version in files
+        run: |
+          sed -i -E 's/version = ".*"/version = "${{ steps.version.outputs.version }}"/' pyproject.toml
+          sed -i -E 's/"dev"/"${{ steps.version.outputs.version }}"/' src/joyfl/__init__.py
+
+      - name: Install (dev)
+        run: uv sync --all-extras --dev
+
+      - name: Build dists
+        run: uv build
+
+      - name: Validate dists (metadata)
+        run: uvx twine check dist/*
+
+      - name: Smoke test wheel install and import
+        run: |
+          python -m venv .venv-smoke
+          . .venv-smoke/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+          python - <<'PY'
+          import joyfl
+          print(getattr(joyfl, "__version__", "unknown"))
+          PY
+
+      - name: Smoke test sdist install and import
+        run: |
+          python -m venv .venv-smoke-sdist
+          . .venv-smoke-sdist/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.tar.gz
+          python - <<'PY'
+          import joyfl
+          print(getattr(joyfl, "__version__", "unknown"))
+          PY
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
