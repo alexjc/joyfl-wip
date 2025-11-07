@@ -57,8 +57,10 @@ def main(files: tuple, commands: tuple, repl: bool, verbose: int, validate: bool
             if not is_repl and not ignore: sys.exit(1)
         elif isinstance(exc, JoyImportError):
             detail = f"Importing library module failed while resolving `{exc.joy_op}`: \033[97m{exc.filename}\033[0m"
-            context = '\n' + format_source_lines(exc.joy_meta, exc.joy_op)
-            _maybe_fatal_error("IMPORT ERROR.", detail, type(exc).__name__, context, is_repl)
+            tb_lines = traceback.format_exception(exc.__cause__ if exc.__cause__ else exc, chain=False)
+            traceback_text = ''.join([line for line in tb_lines if "src/joyfl/" not in line and "<frozen" not in line]).rstrip() + '\n'
+            source_context = format_source_lines(exc.joy_meta, exc.joy_op)
+            _maybe_fatal_error("IMPORT ERROR.", detail, type(exc).__name__, '\n' + '\n'.join((traceback_text, source_context)), is_repl)
         elif isinstance(exc, Exception):
             print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{exc.joy_op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n', file=sys.stderr)
             tb_lines = traceback.format_exc().split('\n')

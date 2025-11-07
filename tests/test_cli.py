@@ -77,3 +77,19 @@ def test_cli_import_module_not_found():
     assert "IMPORT ERROR." in out
     assert "while resolving `errmod`" in out
     assert "File \"" in out
+    assert "Traceback (most recent call last):" in out
+
+
+def test_cli_import_module_exception_shows_traceback():
+    root = repo_root()
+    file_path = root / "tests" / "error-import.joy"
+    env = {"JOY_PATH": str(root / "tests")}
+    result = run_cli(file_path, env=env)
+    assert result.returncode != 0
+    out = result.stdout
+    assert "IMPORT ERROR." in out
+    assert "Traceback (most recent call last):" in out
+    assert "Simulated import failure in tests/errmod.py" in out
+    assert "Module `errmod` not found." not in out
+    assert "The above exception was the direct cause of the following exception:" not in out
+    assert "src/joyfl/" not in out
