@@ -3,8 +3,9 @@
 import os
 import inspect
 from types import UnionType
-from typing import Any, TypeVar, Callable, get_origin, get_args
-from .errors import JoyNameError, JoyModuleError
+from typing import Any, ForwardRef, TypeVar, Callable, get_origin, get_args
+from .errors import JoyNameError, JoyModuleError, JoyTypeMissing
+from .types import Stack
 
 
 _LIB_MODULES = {}
@@ -54,27 +55,54 @@ def _normalize_expected_type(tp):
     if isinstance(tp, TypeVar): return tp
     return tp if isinstance(tp, (type, tuple, UnionType)) else 'UNK'
 
+
+def _is_stack_annotation(annotation: Any) -> bool:
+    if isinstance(annotation, ForwardRef) or hasattr(annotation, '__forward_arg__'):
+        annotation = annotation.__forward_arg__
+    if annotation is Stack:
+        return True
+    if isinstance(annotation, str):
+        return annotation == 'Stack' or annotation.endswith('.Stack')
+    return False
+
+
 def get_stack_effects(*, fn: Callable, name: str = None) -> dict:
     assert fn is not None, "Must specify the function if name is not in signature cache."
 
     sig = inspect.signature(fn)
     params = list(sig.parameters.values())
+    op_name = name or getattr(fn, '__name__', '<unnamed>')
+
     has_varargs = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params)
     positional = [p for p in params if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+    vararg_param = next((p for p in params if p.kind == inspect.Parameter.VAR_POSITIONAL), None)
 
     ret_ann = sig.return_annotation
+    if ret_ann is inspect.Signature.empty:
+        raise JoyTypeMissing(f"Operation `{op_name}` must declare a return annotation.")
+
+    returns_stack_type = _is_stack_annotation(ret_ann)
+    missing_inputs = [p.name for p in positional if p.annotation is inspect._empty]
+    if missing_inputs:
+        missing = ', '.join(missing_inputs)
+        raise JoyTypeMissing(f"Operation `{op_name}` must annotate parameters: {missing}.")
+
+    allow_variadic_stack = False
+    if vararg_param is not None and vararg_param.annotation is inspect._empty:
+        allow_variadic_stack = (not positional and vararg_param.name == 'stack' and returns_stack_type)
+        if not allow_variadic_stack:
+            raise JoyTypeMissing(f"Operation `{op_name}` requires regular type annotation for `*{vararg_param.name}`, or use variadic stack form.")
+
     returns_none = (ret_ann is type(None) or ret_ann is None)
     returns_tuple = (ret_ann is tuple or get_origin(ret_ann) is tuple)
 
     if returns_none:
         outputs: list = []
-    elif ret_ann is inspect.Signature.empty:
-        # No annotation: assume single return value of Any type
-        outputs = [Any]
     else:
-        ret_ann = get_args(ret_ann) if returns_tuple else (ret_ann,)
-        outputs = [_normalize_expected_type(t) for t in ret_ann]
-    replace_stack = name in {'unstack'}  # Single exception allowed to do this.
+        raw_ret = get_args(ret_ann) if returns_tuple else (ret_ann,)
+        outputs = [_normalize_expected_type(t) for t in raw_ret]
+
+    replace_stack = (name in {'unstack'}) or allow_variadic_stack  # Allow stack replacement semantics.
 
     meta = {
         'arity': -1 if (has_varargs and len(positional) == 0) else len(positional),

@@ -1,6 +1,10 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
+import pytest
+
+from joyfl.errors import JoyTypeMissing
 from joyfl.runtime import Runtime
+from joyfl.types import Stack
 
 
 def test_runtime_interpret_step_manual_queue():
@@ -68,9 +72,20 @@ END.
 def test_runtime_register_operation_without_annotations():
     rt = Runtime()
     def quadruple(x): return x * 4
-    rt.register_operation('quadruple', quadruple)
-    stack = rt.run("8 quadruple .")
-    assert rt.from_stack(stack) == [32]
+    with pytest.raises(JoyTypeMissing):
+        rt.register_operation('quadruple', quadruple)
+
+
+def test_runtime_variadic_stack_operation():
+    rt = Runtime()
+
+    def drop_top(*stack) -> Stack:
+        rest, _ = stack
+        return rest
+
+    rt.register_operation('drop-top', drop_top)
+    stack = rt.run("1 2 3 drop-top .")
+    assert rt.from_stack(stack) == [2, 1]
 
 
 def test_runtime_register_operation_with_explicit_signature():

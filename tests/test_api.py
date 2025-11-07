@@ -3,6 +3,7 @@
 import pytest
 
 import joyfl.api as J
+from joyfl.errors import JoyTypeMissing
 
 
 def test_run_string_add():
@@ -24,9 +25,8 @@ def test_register_operation_and_run():
 
 def test_register_operation_without_annotations():
     def double(x): return x * 2
-    J.register_operation('double', double)
-    stack = J.run("5 double .")
-    assert J.from_stack(stack) == [10]
+    with pytest.raises(JoyTypeMissing):
+        J.register_operation('double', double)
 
 
 def test_register_factory_and_run():
