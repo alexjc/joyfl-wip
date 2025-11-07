@@ -1,5 +1,8 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
+import pytest
+
+from joyfl.errors import JoyTypeMissing
 from joyfl.runtime import Runtime
 
 
@@ -68,9 +71,8 @@ END.
 def test_runtime_register_operation_without_annotations():
     rt = Runtime()
     def quadruple(x): return x * 4
-    rt.register_operation('quadruple', quadruple)
-    stack = rt.run("8 quadruple .")
-    assert rt.from_stack(stack) == [32]
+    with pytest.raises(JoyTypeMissing):
+        rt.register_operation('quadruple', quadruple)
 
 
 def test_runtime_register_operation_with_explicit_signature():
