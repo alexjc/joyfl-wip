@@ -34,7 +34,6 @@ def load_library_module(ns: str, meta: dict):
             try:
                 spec.loader.exec_module(module)
             except (SyntaxError, ImportError, Exception) as e:
-                import traceback; traceback.print_exc()
                 raise JoyModuleError(str(e), filename=mod_path, joy_op=ns, joy_meta=meta) from e
         _LIB_MODULES[ns] = module
         return module
