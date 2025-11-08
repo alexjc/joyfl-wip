@@ -5,6 +5,8 @@ import pytest
 from joyfl.errors import JoyTypeMissing
 from joyfl.runtime import Runtime
 from joyfl.types import Stack
+from joyfl.linker import link_body
+from joyfl.parser import parse
 
 
 def test_runtime_interpret_step_manual_queue():
@@ -127,3 +129,37 @@ def test_runtime_preserves_quotations_and_order():
     for code, expected in cases:
         stack = rt.run(code + " .")
         assert rt.from_stack(stack) == expected
+
+
+def _resolve_operation(rt: Runtime, name: str):
+    term_tokens = None
+    for typ, data in parse(f"{name}", start='term'):
+        if typ == 'term':
+            term_tokens = data
+            break
+    assert term_tokens is not None
+    program, _ = link_body(term_tokens, meta={'filename': '<TEST>', 'lines': (1, 1)}, lib=rt.library)
+    return program[0]
+
+
+def test_runtime_can_step_rejects_insufficient_stack_for_joy_definition():
+    rt = Runtime()
+    rt.load("DEFINE foo : ( int bool -- ) == true .", filename='<TEST>', validate=False)
+    op = _resolve_operation(rt, 'foo')
+
+    ok, message = rt.can_step(op, rt.to_stack([True]))
+    assert not ok
+    assert "needs at least 2 item" in message
+
+
+def test_runtime_can_step_validates_types_for_joy_definition():
+    rt = Runtime()
+    rt.load("DEFINE foo : ( int bool -- ) == true .", filename='<TEST>', validate=False)
+    op = _resolve_operation(rt, 'foo')
+
+    ok, _ = rt.can_step(op, rt.to_stack([True, 7]))
+    assert ok
+
+    ok, message = rt.can_step(op, rt.to_stack([1, 7]))
+    assert not ok
+    assert "expects bool" in message

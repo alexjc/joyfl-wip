@@ -9,8 +9,15 @@ from .library import Library
 
 
 def link_body(tokens: list, meta: dict, lib: Library):
+    assert meta is not None
+    lines = meta.get('lines', (0, 0))
+    signature = meta.get('signature')
+
     stack = tuple()
-    output, meta = [], {'filename': meta['filename'], 'start': meta['lines'][0], 'finish': -1}
+    output = []
+    meta = {'filename': meta.get('filename'), 'start': lines[0], 'finish': -1}
+    if signature is not None:
+        meta['signature'] = signature
 
     for typ, token, mt in tokens:
         token = token.lstrip(':')
@@ -35,7 +42,10 @@ def link_body(tokens: list, meta: dict, lib: Library):
                 raise JoyNameError(f"Unknown factory `{token}`.", joy_op=token, joy_meta=meta)
             output.append(factory())
         elif token in lib.quotations:
-            prg, mt['body'] = lib.quotations[token]
+            prg, stored_meta = lib.quotations[token]
+            mt['body'] = stored_meta
+            if stored_meta and 'signature' in stored_meta:
+                mt['signature'] = stored_meta['signature']
             output.append(Operation(Operation.EXECUTE, prg, token, mt))
         elif token.startswith('"') and token.endswith('"'):
             output.append(ast.literal_eval(token))
