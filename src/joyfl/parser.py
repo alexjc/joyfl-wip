@@ -1,13 +1,13 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
-#
-# joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
-#
 
 import os
 import sys
+import numbers
 import textwrap
+from typing import Any
 
 import lark
+from .types import Stack
 from .errors import JoyParseError, JoyIncompleteParse
 
 
@@ -58,18 +58,108 @@ NAME: /[^\s\[\]\\(\){\}\;\.\#](?:[A-Za-z0-9!+\-=<>_,?.]*[A-Za-z0-9!+\-=<>_,?])?/
 """
 
 
+TYPE_NAME_MAP: dict[str, Any] = {
+    'int': int, 'integer': int, 'float': float, 'double': float,
+    'bool': bool, 'boolean': bool,
+    'str': str, 'string': str, 'text': str,
+    'number': numbers.Number,
+    'list': list, 'array': list, 'quot': list,
+    'stack': Stack,
+    'any': Any, '': Any,
+}
+
+
+def _stack_effect_to_meta(effect: dict | None) -> dict | None:
+    if not effect: return None
+
+    def _convert(items):
+        converted = []
+        for item in items:
+            type_name = item.get('type')
+            if type_name is None and item.get('quote') is not None:
+                type_name = 'quot'
+            converted.append(TYPE_NAME_MAP.get((type_name or '').lower(), Any))
+        return list(reversed(converted))
+
+    inputs, outputs = effect.get('inputs', []), effect.get('outputs', [])
+    return {
+        'inputs': _convert(inputs),
+        'outputs': _convert(outputs),
+        'arity': len(inputs),
+        'valency': len(outputs),
+    }
+
+
+_TYPE_HINTS = {name for name in TYPE_NAME_MAP}
+
+
 def parse(source: str, start='start', filename=None):
     parser = lark.Lark(GRAMMAR, start=start, parser="lalr", lexer="contextual", propagate_positions=True)
 
+    def _stack_pattern(tree):
+        items = []
+        for item in tree.children:
+            if not isinstance(item, lark.Tree) or not item.children:
+                continue
+            first = item.children[0]
+            if isinstance(first, lark.Token) and first.type == 'NAME':
+                name = first.value
+                if name.startswith(':'):
+                    if items:
+                        items[-1]['type'] = name[1:] or None
+                    else:
+                        items.append({'label': None, 'type': name[1:] or None, 'quote': None, 'raw': name})
+                    continue
+                entry = {'label': name, 'type': None, 'quote': None, 'raw': name}
+                if (lower := name.lower()) in _TYPE_HINTS:
+                    entry['type'], entry['label'] = lower, None
+                items.append(entry)
+                continue
+            if len(item.children) == 3 and isinstance(item.children[0], lark.Token) and item.children[0].type == 'LSQB':
+                items.append({'label': None, 'type': 'quote', 'quote': _stack_pattern(item.children[1]), 'raw': None})
+        return items
+
+    def _stack_effect(tree):
+        patterns = [ch for ch in tree.children if isinstance(ch, lark.Tree) and ch.data == 'stack_pattern']
+        assert len(patterns) > 0, "Stack effects not found as expected."
+        inputs = _stack_pattern(patterns[0])
+        outputs = _stack_pattern(patterns[1]) if len(patterns) > 1 else []
+        return {'inputs': inputs, 'outputs': outputs}
+
     def _flatten(node):
         if isinstance(node, lark.Tree):
-            if node.data == 'stack_effect': return  # documentation only for now
+            if node.data == 'stack_effect': return
             for child in node.children:
                 yield from _flatten(child)
         elif node.type not in ('SEPARATOR', 'COLON', 'LPAREN', 'RPAREN', 'ARROW'):
             meta = {'filename': filename, 'lines': (node.line, node.end_line),
                     'columns': (node.column, node.end_column)} if hasattr(node, 'line') else {}
             yield (node.type, node.value, meta)
+
+    def _extract_definition(node):
+        if not isinstance(node, lark.Tree) or node.data != 'definition':
+            return None
+
+        children = list(node.children)
+        idx = 0
+
+        name_token = children[idx]; idx += 1
+        signature = None
+        if idx < len(children) and isinstance(children[idx], lark.Tree) and children[idx].data == 'stack_effect':
+            stack_effect = _stack_effect(children[idx])
+            signature = _stack_effect_to_meta(stack_effect)
+            idx += 1
+        if idx < len(children) and isinstance(children[idx], lark.Token) and children[idx].type == 'EQUALS':
+            idx += 1
+
+        term_node = children[idx] if idx < len(children) else None
+        head = next(_flatten(name_token))
+        body = list(_flatten(term_node)) if term_node is not None else []
+        if signature is not None:
+            meta = dict(head[2]) if head[2] else {}
+            meta['signature'] = signature
+            head = (head[0], head[1], meta)
+        return head, body
 
     def _traverse(it):
         if isinstance(it, lark.Token):
@@ -83,7 +173,7 @@ def parse(source: str, start='start', filename=None):
             for ch in [c for c in it.children[:-1] if c not in ('END', '.')]:
                 key = ch.data.split('_', maxsplit=1)[0]
                 if key != 'module':
-                    sections[key] = [(toks[0], toks[2:]) for i in ch.children[0].children if (toks := list(_flatten(i)))]
+                    sections[key] = [parsed for definition_node in ch.children[0].children if (parsed := _extract_definition(definition_node))]
             yield 'library', sections
         elif it.data == 'term':
             yield 'term', list(_flatten(it))

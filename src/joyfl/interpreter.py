@@ -1,7 +1,4 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
-#
-# joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
-#
 
 import sys
 import traceback
@@ -13,6 +10,14 @@ from .types import Operation, Stack, nil
 from .parser import print_source_lines
 from .library import Library
 from .formatting import show_stack, show_program_and_stack, stack_to_list
+
+
+def _operation_signature(op: Operation):
+    if op.type == Operation.FUNCTION and hasattr(op.ptr, '__joy_meta__'):
+        return op.ptr.__joy_meta__
+    if isinstance(op.meta, dict) and 'signature' in opmeta:
+        return op.meta['signature']
+    return None
 
 
 def can_execute(op: Operation, stack: Stack) -> tuple[bool, str]:
@@ -32,9 +37,8 @@ def can_execute(op: Operation, stack: Stack) -> tuple[bool, str]:
         if head == 0:
             return False, f"`{op.name}` would divide by zero and cause a runtime exception."
 
-    if op.type != Operation.FUNCTION: return True, ""
+    if (eff := _operation_signature(op)) is None: return True, ""
 
-    eff = getattr(op.ptr, '__joy_meta__')
     inputs = eff['inputs']
     items = stack_to_list(stack)
     depth = len(items)
