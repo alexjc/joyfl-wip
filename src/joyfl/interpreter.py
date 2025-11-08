@@ -15,7 +15,7 @@ from .formatting import show_stack, show_program_and_stack, stack_to_list
 def _operation_signature(op: Operation):
     if op.type == Operation.FUNCTION and hasattr(op.ptr, '__joy_meta__'):
         return op.ptr.__joy_meta__
-    if isinstance(op.meta, dict) and 'signature' in opmeta:
+    if isinstance(op.meta, dict) and 'signature' in op.meta:
         return op.meta['signature']
     return None
 
