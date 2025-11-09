@@ -35,6 +35,10 @@ class JoyTypeMissing(JoyError, TypeError):
     pass
 
 
+class JoyTypeError(JoyError, TypeError):
+    pass
+
+
 class JoyImportError(JoyError, ImportError):
     def __init__(self, message, *, joy_op=None, filename=None, joy_meta=None):
         super().__init__(message, joy_op=joy_op, joy_meta=joy_meta)

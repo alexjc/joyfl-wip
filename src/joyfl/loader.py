@@ -4,7 +4,7 @@ import os
 import inspect
 from types import UnionType
 from typing import Any, ForwardRef, TypeVar, Callable, get_origin, get_args
-from .errors import JoyNameError, JoyModuleError, JoyTypeMissing
+from .errors import JoyNameError, JoyModuleError, JoyTypeMissing, JoyTypeError
 from .types import Stack
 
 
@@ -50,10 +50,21 @@ def resolve_module_op(ns: str, name: str, *, meta: dict | None = None):
 
 
 def _normalize_expected_type(tp):
-    if tp is inspect._empty: return Any
     if tp is Any: return Any
-    if isinstance(tp, TypeVar): return tp
-    return tp if isinstance(tp, (type, tuple, UnionType)) else 'UNK'
+    if isinstance(tp, TypeVar):
+        if (bound := tp.__bound__):
+            return _normalize_expected_type(bound)
+        raise JoyTypeError("TypeVar was empty, treating as invalid type {tp}.")
+    if isinstance(tp, (type, tuple, UnionType)): return tp
+
+    if (origin := get_origin(tp)) is not None:
+        if origin in (list, tuple, dict, set, frozenset): return origin
+        if isinstance(origin, type): return origin
+        raise JoyTypeError(f"Unknown generic in type definition for {tp}.")
+
+    if isinstance(tp, (ForwardRef, str)):
+        raise JoyTypeError("Forward references and strings-as-types not supported.")
+    raise JoyTypeError(f"Unknown type to normalize: {tp} {type(tp)}")
 
 
 def _is_stack_annotation(annotation: Any) -> bool:

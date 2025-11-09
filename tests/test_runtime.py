@@ -9,6 +9,38 @@ from joyfl.linker import link_body
 from joyfl.parser import parse
 
 
+def test_runtime_can_step_with_generic_alias_param():
+    from dataclasses import dataclass
+
+    @dataclass
+    class Thing:
+        value: int
+
+    def use_list(xs: list[Thing]) -> Thing:
+        return xs[0]
+
+    rt = Runtime()
+    # register operation with GenericAlias in signature
+    rt.register_operation('use-list', use_list)
+
+    # can_step should accept a list of Thing on the stack
+    ok, msg = rt.can_step(rt.operation('use-list'), rt.to_stack([[Thing(1)]]))
+    assert ok, msg
+
+def test_runtime_can_step_with_pep604_union_param():
+    rt = Runtime()
+
+    def use_union(x: int | float) -> float:
+        return float(x)
+
+    rt.register_operation('use-union', use_union)
+
+    ok, msg = rt.can_step(rt.operation('use-union'), rt.to_stack([2]))
+    assert ok, msg
+
+    ok, msg = rt.can_step(rt.operation('use-union'), rt.to_stack([2.0]))
+    assert ok, msg
+
 def test_runtime_interpret_step_manual_queue():
     rt = Runtime()
     # Build a tiny program [2 3 add] and step it

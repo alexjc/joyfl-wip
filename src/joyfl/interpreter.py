@@ -51,6 +51,7 @@ def can_execute(op: Operation, stack: Stack) -> tuple[bool, str]:
         if isinstance(expected_type, TypeVar): expected_type = expected_type.__bound__
         if expected_type in (Any, None): continue
         actual = items[i]
+        print(type(expected_type), expected_type)
         if not isinstance(actual, expected_type):
             type_name = expected_type.__name__ if hasattr(expected_type, '__name__') else str(expected_type)
             return False, f"`{op.name}` expects {type_name} at position {i+1} from top, got {type(actual).__name__}."
