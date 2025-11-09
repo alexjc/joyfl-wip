@@ -5,15 +5,26 @@ import subprocess
 from pathlib import Path
 
 
-def run_cli(file_path: Path, *, env: dict | None = None, extra_args: list[str] | None = None) -> subprocess.CompletedProcess:
+def run_cli(*cli_args: str | Path, env: dict | None = None, extra_args: list[str] | None = None) -> subprocess.CompletedProcess:
     args = [sys.executable, "-m", "joyfl", "--plain"]
     if extra_args:
         args.extend(extra_args)
-    args.append(str(file_path))
+    args.extend(str(arg) for arg in cli_args)
     merged_env = os.environ.copy()
     if env:
         merged_env.update(env)
     return subprocess.run(args, capture_output=True, text=True, env=merged_env)
+
+
+def run_cli_input(stdin: str, *cli_args: str | Path, env: dict | None = None, extra_args: list[str] | None = None) -> subprocess.CompletedProcess:
+    args = [sys.executable, "-m", "joyfl", "--plain"]
+    if extra_args:
+        args.extend(extra_args)
+    args.extend(str(arg) for arg in cli_args)
+    merged_env = os.environ.copy()
+    if env:
+        merged_env.update(env)
+    return subprocess.run(args, input=stdin, capture_output=True, text=True, env=merged_env)
 
 
 def repo_root() -> Path:
@@ -93,3 +104,45 @@ def test_cli_import_module_exception_shows_traceback():
     assert "Module `errmod` not found." not in out
     assert "The above exception was the direct cause of the following exception:" not in out
     assert "src/joyfl/" not in out
+
+
+def _strip_output_lines(output: str) -> list[str]:
+    return [line for line in output.splitlines() if line.strip()]
+
+
+def test_cli_run_file_subcommand_executes_program(tmp_path: Path):
+    program = tmp_path / "hello.joy"
+    program.write_text('"RUNFILE" put! .\n', encoding='utf-8')
+
+    result = run_cli(program)
+
+    assert result.returncode == 0
+    assert _strip_output_lines(result.stdout) == ["RUNFILE"]
+
+
+def test_cli_dev_mode_executes_mixed_inputs(tmp_path: Path):
+    first = tmp_path / "first.joy"
+    first.write_text('"FIRST" put! .\n', encoding='utf-8')
+    second = tmp_path / "second.joy"
+    second.write_text('"THIRD" put! .\n', encoding='utf-8')
+
+    result = run_cli(first, "-c", '"SECOND" put!', second)
+
+    assert result.returncode == 0
+    assert _strip_output_lines(result.stdout) == ["FIRST", "SECOND", "THIRD"]
+
+#
+# Note: module loading for Joy source via JOY_PATH is currently handled only
+#       by explicit CLI path as needed; no extra tests here to enforce semantics.
+
+
+def test_cli_stdin_implicit_runs_program():
+    result = run_cli_input('"IMPLICIT" put! .\n')
+    assert result.returncode == 0
+    assert _strip_output_lines(result.stdout) == ["IMPLICIT"]
+
+
+def test_cli_stdin_dash_runs_program():
+    result = run_cli_input('"DASH" put! .\n', "-")
+    assert result.returncode == 0
+    assert _strip_output_lines(result.stdout) == ["DASH"]
