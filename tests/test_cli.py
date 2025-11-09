@@ -131,6 +131,10 @@ def test_cli_dev_mode_executes_mixed_inputs(tmp_path: Path):
     assert result.returncode == 0
     assert _strip_output_lines(result.stdout) == ["FIRST", "SECOND", "THIRD"]
 
+#
+# Note: module loading for Joy source via JOY_PATH is currently handled only
+#       by explicit CLI path as needed; no extra tests here to enforce semantics.
+
 
 def test_cli_stdin_implicit_runs_program():
     result = run_cli_input('"IMPLICIT" put! .\n')
@@ -138,7 +142,7 @@ def test_cli_stdin_implicit_runs_program():
     assert _strip_output_lines(result.stdout) == ["IMPLICIT"]
 
 
-def test_cli_stdin_dash_explicit_file_runs_program():
-    result = run_cli_input('"DASH" put! .\n', "file", "-")
+def test_cli_stdin_dash_runs_program():
+    result = run_cli_input('"DASH" put! .\n', "-")
     assert result.returncode == 0
     assert _strip_output_lines(result.stdout) == ["DASH"]

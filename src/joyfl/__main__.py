@@ -4,6 +4,7 @@
 #
 
 import sys
+import os
 import time
 import traceback
 from pathlib import Path
@@ -218,7 +219,7 @@ def run_file(ctx: click.Context, script, runtime_args: tuple[str, ...]) -> None:
     ctx.exit(runner.finalize())
 
 
-@cli.command('run-module')
+@cli.command('run-mod')
 @click.argument('name')
 @click.pass_context
 def run_module(ctx: click.Context, name: str) -> None:
@@ -228,13 +229,29 @@ def run_module(ctx: click.Context, name: str) -> None:
     else:
         module_name, module_term = name, 'main'
 
+    # Load Joy library module from local libs/ directories if present, then execute <module>.main
+    base = Path(__file__).resolve().parent
+    for d in (base, *base.parents[:2]):
+        src = d / 'libs' / f"{module_name}.joy"
+        if not src.exists():
+            continue
+        existing = set(J.library.quotations.keys())
+        J.load(src.read_text(encoding='utf-8'), filename=str(src), validate=ctx.obj['config'].validate)
+        # Namespace new public quotations for dotted access (module.term)
+        for qname in J.library.quotations.keys() - existing:
+            if '.' in qname:
+                continue
+            prog, qmeta = J.library.quotations[qname]
+            J.library.quotations.setdefault(f"{module_name}.{qname}", (prog, qmeta))
+        break
+
     runner = JoyRunner(ctx.obj['config'])
     program = f"{module_name}.{module_term} .\n"
-    runner.execute_items((ExecutionItem(program, f'<MODULE:{module_name}.{module_term}>'),))
+    runner.execute_items((ExecutionItem(program, f'<MOD:{module_name}.{module_term}>'),))
     ctx.exit(runner.finalize())
 
 
-@cli.command('dev', context_settings={'ignore_unknown_options': True, 'allow_extra_args': True})
+@cli.command('run-dev', context_settings={'ignore_unknown_options': True, 'allow_extra_args': True})
 @click.argument('tokens', nargs=-1)
 @click.pass_context
 def run_dev(ctx: click.Context, tokens: tuple[str, ...]) -> None:
@@ -258,7 +275,7 @@ def run_dev(ctx: click.Context, tokens: tuple[str, ...]) -> None:
     ctx.exit(runner.finalize())
 
 
-@cli.command('repl')
+@cli.command('run-repl')
 @click.pass_context
 def run_repl(ctx: click.Context) -> None:
     runner = JoyRunner(ctx.obj['config'])
@@ -266,26 +283,34 @@ def run_repl(ctx: click.Context) -> None:
     ctx.exit(runner.finalize())
 
 
-if __name__ == "__main__":
-    a = sys.argv[1:]
+def main(argv: list[str] | None = None) -> None:
+    a = list(sys.argv[1:] if argv is None else argv)
     g = [t for t in a if t in ('--validate','--ignore','--stats','--plain') or t.startswith('-v')]
     r = [t for t in a if t not in g]
     pos = [t for t in r if not t.startswith('-')]
 
     if len(r) == 0:
         # No args: if stdin has data, treat as file '-', else REPL
-        cmd, tail = ( 'file', ['-'] ) if not sys.stdin.isatty() else ( 'repl', [] )
-    elif r[0] in ('file','module','dev','repl'):
-        cmd, tail = r[0], r[1:]
+        cmd, tail = ('run-file', ['-']) if not sys.stdin.isatty() else ('run-repl', [])
+    elif '-m' in r:
+        i = r.index('-m')
+        if i + 1 >= len(r): raise SystemExit("Expected module name after -m.")
+        cmd, tail = 'run-mod', [r[i+1]]
+    elif r == ['-'] or (len(r) >= 2 and r[0] == '-f' and r[1] == '-'):
+        cmd, tail = 'run-file', ['-']
     elif '--repl' in a:
-        cmd, tail = 'repl', []
+        cmd, tail = 'run-repl', []
     elif len(pos) == 1:
         tok = pos[0]
         if tok.endswith('.joy') and Path(tok).exists():
-            cmd, tail = 'file', [tok]
+            cmd, tail = 'run-file', [tok]
         else:
-            cmd, tail = 'module', [tok]
+            cmd, tail = 'run-mod', [tok]
     else:
-        cmd, tail = 'dev', r
+        cmd, tail = 'run-dev', r
 
     cli.main(args=[*g, cmd, *tail], prog_name='joyfl')
+
+
+if __name__ == "__main__":
+    main()
