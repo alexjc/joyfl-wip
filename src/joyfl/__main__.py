@@ -18,7 +18,7 @@ from .errors import JoyError, JoyParseError, JoyNameError, JoyIncompleteParse, J
 from .parser import format_parse_error_context, print_source_lines, format_source_lines
 from .formatting import write_without_ansi, format_item, show_stack
 
-from . import api as J
+from .runtime import Runtime
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,7 @@ class JoyRunner:
             writer = write_without_ansi(sys.stdout.write)
             sys.stdout.write, sys.stderr.write = writer, writer
 
+        self.runtime = Runtime()
         self.total_stats = {'steps': 0, 'start': time.time()} if self.stats_enabled else None
         self.failure = False
         self.executed_items = 0
@@ -58,7 +59,7 @@ class JoyRunner:
         base = Path(__file__).resolve().parent
         candidates = (d / 'libs' / 'stdlib.joy' for d in (base, *base.parents[:2]))
         stdlib_path = next((p for p in candidates if p.exists()), Path('libs/stdlib.joy'))
-        J.load(stdlib_path.read_text(encoding='utf-8'), filename='libs/stdlib.joy', validate=self.validate)
+        self.runtime.load(stdlib_path.read_text(encoding='utf-8'), filename='libs/stdlib.joy', validate=self.validate)
 
     def _maybe_fatal_error(self, message: str, detail: str, exc_type: str = None, context: str = '', is_repl: bool = False) -> None:
         header = detail if not exc_type else f"{detail} (Exception: \033[33m{exc_type}\033[0m)"
@@ -77,7 +78,7 @@ class JoyRunner:
             self._maybe_fatal_error("LINKER ERROR.", detail, type(exc).__name__, context, is_repl)
         elif isinstance(exc, JoyAssertionError):
             print(f'\033[30;43m ASSERTION FAILED. \033[0m Function \033[1;97m`{exc.joy_op}`\033[0m raised an error.\n', file=sys.stderr)
-            print_source_lines(exc.joy_op, J.library.quotations, file=sys.stderr)
+            print_source_lines(exc.joy_op, self.runtime.library.quotations, file=sys.stderr)
             print(f'\033[1;33m  Stack content is\033[0;33m\n    ', end='', file=sys.stderr)
             show_stack(exc.joy_stack, width=None, file=sys.stderr)
             print('\033[0m', file=sys.stderr)
@@ -92,7 +93,7 @@ class JoyRunner:
             print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{exc.joy_op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n', file=sys.stderr)
             tb_lines = traceback.format_exc().split('\n')
             print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n', file=sys.stderr)
-            print_source_lines(exc.joy_op, J.library.quotations, file=sys.stderr)
+            print_source_lines(exc.joy_op, self.runtime.library.quotations, file=sys.stderr)
             traceback.print_exc()
             if not is_repl and not self.ignore: sys.exit(1)
         return False
@@ -103,7 +104,7 @@ class JoyRunner:
 
     def _execute_single(self, source: str, filename: str, is_repl: bool = False) -> None:
         try:
-            result = J.run(source, filename=filename, verbosity=self.verbose, validate=self.validate, stats=self.total_stats)
+            result = self.runtime.run(source, filename=filename, verbosity=self.verbose, validate=self.validate, stats=self.total_stats)
             if result is None and not is_repl:
                 self.failure = True
                 if not self.ignore: sys.exit(1)
@@ -127,7 +128,7 @@ class JoyRunner:
                 source += line + " "
 
                 try:
-                    stack = J.run(source, filename='<REPL>', verbosity=self.verbose, validate=self.validate)
+                    stack = self.runtime.run(source, filename='<REPL>', verbosity=self.verbose, validate=self.validate)
                     if stack is not nil: print("\033[90m>>>\033[0m", format_item(stack[-1]))
                     source = ""
                 except (JoyError, Exception) as exc:
@@ -223,6 +224,8 @@ def run_file(ctx: click.Context, script, runtime_args: tuple[str, ...]) -> None:
 @click.argument('name')
 @click.pass_context
 def run_module(ctx: click.Context, name: str) -> None:
+    runner = JoyRunner(ctx.obj['config'])
+
     if '.' in name:
         module_name, module_term = name.split('.', 1)
         module_term = module_term or 'main'
@@ -235,17 +238,16 @@ def run_module(ctx: click.Context, name: str) -> None:
         src = d / 'libs' / f"{module_name}.joy"
         if not src.exists():
             continue
-        existing = set(J.library.quotations.keys())
-        J.load(src.read_text(encoding='utf-8'), filename=str(src), validate=ctx.obj['config'].validate)
+        existing = set(runner.runtime.library.quotations.keys())
+        runner.runtime.load(src.read_text(encoding='utf-8'), filename=str(src), validate=ctx.obj['config'].validate)
         # Namespace new public quotations for dotted access (module.term)
-        for qname in J.library.quotations.keys() - existing:
+        for qname in runner.runtime.library.quotations.keys() - existing:
             if '.' in qname:
                 continue
-            prog, qmeta = J.library.quotations[qname]
-            J.library.quotations.setdefault(f"{module_name}.{qname}", (prog, qmeta))
+            prog, qmeta = runner.runtime.library.quotations[qname]
+            runner.runtime.library.quotations.setdefault(f"{module_name}.{qname}", (prog, qmeta))
         break
 
-    runner = JoyRunner(ctx.obj['config'])
     program = f"{module_name}.{module_term} .\n"
     runner.execute_items((ExecutionItem(program, f'<MOD:{module_name}.{module_term}>'),))
     ctx.exit(runner.finalize())

@@ -2,8 +2,10 @@
 
 import os
 import inspect
+from pathlib import Path
 from types import UnionType
 from typing import Any, ForwardRef, TypeVar, Callable, get_origin, get_args
+
 from .errors import JoyNameError, JoyModuleError, JoyTypeMissing, JoyTypeError
 from .types import Stack
 
@@ -17,13 +19,14 @@ def get_python_name(joy_name):
 def load_library_module(ns: str, meta: dict):
     if ns in _LIB_MODULES: return _LIB_MODULES[ns]
 
-    # Default search is libs/_{ns}.py, packaged with the distribution.
-    candidates = [(os.path.join(os.path.dirname(__file__), 'libs', f'_{ns}.py'), f"joyfl.libs._{ns}")]
-    # Also search user specified JOY_PATH environment variable.
-    candidates += [
-        (os.path.join(os.path.expanduser(os.path.expandvars(base)), f'{ns}.py'), f"joyfl.ext.{ns}")
-        for base in [p for p in os.environ.get('JOY_PATH', '').split(os.pathsep) if p]
-    ]
+    # Search packaged libs in this package and parents; underscore-only (_{ns}.py).
+    roots = (base := Path(__file__).resolve().parent, *base.parents[:2])
+    candidates = [(str(d / 'libs' / f'_{ns}.py'), f"joyfl.libs._{ns}") for d in roots]
+
+    # Also search JOY_PATH entries (plain-only {ns}.py).
+    joy_paths = [p for p in os.environ.get('JOY_PATH', '').split(os.pathsep) if p]
+    joy_paths = [os.path.expanduser(os.path.expandvars(p)) for p in joy_paths]
+    candidates += [(os.path.join(p, f'{ns}.py'), f"joyfl.ext.{ns}") for p in joy_paths]
 
     import importlib.util as importer
     for mod_path, mod_name in candidates:
