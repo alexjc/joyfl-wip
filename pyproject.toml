@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "joyfl"
-version = "0.4-dev"
+version = "0.5-dev"
 description = "A minimal but elegant dialect of Joy, a functional / concatenative stack language."
 readme = { file = "README.rst", content-type = "text/x-rst" }
 requires-python = ">=3.11"
