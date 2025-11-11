@@ -1,7 +1,4 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
-#
-# joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
-#
 
 import math
 from typing import Any, TypeVar
@@ -57,7 +54,7 @@ def op_first(x: list) -> Any: return x[0]
 def op_rest(x: list) -> list: return x[1:]
 def op_last(x: list) -> Any: return x[-1]
 def op_index(b: int, a: list) -> Any: return a[int(b)]
-def op_member_q(b: Any, a: list) -> bool: return b in a
+def op_member_q(b: Any, a: list | dict | set) -> bool: return b in a
 def op_length(x: Any) -> int: return len(x)
 def op_sum(x: list) -> num: return sum(x)
 def op_product(x: list) -> num: return math.prod(x)
@@ -79,7 +76,10 @@ def op_raise_b(x: Any) -> None: raise x
 def op_str_concat(b: str, a: str) -> str: return str(b) + str(a)
 def op_str_contains_q(b: str, a: str) -> bool: return str(b) in str(a)
 def op_str_split(b: str, a: str) -> Any: return a.split(b)
+def op_str_cast(x: Any) -> str: return str(x)
+def op_str_join(b: list, a: str) -> str: return a.join(b)
 # DICTIONARIES (mutable)
 def op_dict_new() -> dict: return {}
+def op_dict_q(d: dict) -> bool: return isinstance(d, dict)
 def op_dict_store(d: dict, k: bytes, v: Any) -> dict: return d.__setitem__(k, v) or d
 def op_dict_fetch(d: dict, k: bytes) -> Any: return d[k]
