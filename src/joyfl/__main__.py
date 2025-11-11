@@ -4,12 +4,10 @@
 #
 
 import sys
-import os
 import time
 import traceback
 from pathlib import Path
 from dataclasses import dataclass
-from collections.abc import Iterable, Iterator
 
 import click
 
@@ -18,7 +16,7 @@ from .errors import JoyError, JoyParseError, JoyNameError, JoyIncompleteParse, J
 from .parser import format_parse_error_context, print_source_lines, format_source_lines
 from .formatting import write_without_ansi, format_item, show_stack
 
-from .runtime import Runtime
+from . import api
 
 
 @dataclass(frozen=True)
@@ -48,7 +46,7 @@ class JoyRunner:
             writer = write_without_ansi(sys.stdout.write)
             sys.stdout.write, sys.stderr.write = writer, writer
 
-        self.runtime = Runtime()
+        self.runtime = api._RUNTIME
         self.total_stats = {'steps': 0, 'start': time.time()} if self.stats_enabled else None
         self.failure = False
         self.executed_items = 0
@@ -98,7 +96,7 @@ class JoyRunner:
             if not is_repl and not self.ignore: sys.exit(1)
         return False
 
-    def execute_items(self, items: Iterable[ExecutionItem]) -> None:
+    def execute_items(self, items: list[ExecutionItem]) -> None:
         for item in items:
             self._execute_single(item.source, item.filename)
 
