@@ -34,6 +34,7 @@ PUBLIC
     unit            ==  [] cons ;
     pair            ==  [] cons cons ;
     unpair          ==  uncons uncons pop ;
+    second          ==  rest first ;
 
     swons           ==  swap cons ;
     unswons         ==  uncons swap ;
@@ -48,13 +49,15 @@ PUBLIC
     y               ==  [dup cons] swap concat dup cons i ;
 
     dupd            ==  [dup] :dip ;
+    over            ==  dupd swap ;
 
    (*  `dipd` — executes a quotation with the top two stack items saved and restored later.
     *   EXAMPLE:    1 2 3 [10 +] dipd rolldown 11 equal? .
     *   NOTE:       This version is intentionally cons free, alternative is [dip] cons dip.
     *)
     dipd            ==  swap [dip] :dip ;
-    over            ==  dupd swap ;
+    dupdd           ==  [dup] :dipd ;
+    popdd           ==  [pop] :dipd ;
 
     app1            ==  i ; 
     app2            ==  dup [dip] :dip i ;
@@ -82,6 +85,13 @@ PUBLIC
                     #    false [then] [else] branch  →  else
                     #    true  [then] [else] branch  →  then
                     ==  choice i ;
+
+   (*  `cleave` — executes two quotations on the stack item just below, leaving result on stack.
+    *
+    *   EXAMPLE:    [1 2 3 4] [sum] [length] :cleave / .
+    *   NOTE:       Each quotation must consume one and only one stack item.
+    *)
+    cleave          ==  dupdd rollup i rollup i ;
 
    (*  `nullary` — executes a quotation without affecting the stack, leaving only its result.
     *
@@ -252,6 +262,12 @@ PUBLIC
                         [dup first dup] swoncat [rolldown [branch-append] :dip rest] concat
                         [null?] swap [pop swap] swap
                         :tailrec ;
+
+   (*  `filter` — evaluate a predicate for each item in a list, keep the ones that result in `true`.
+    *
+    *   EXAMPLE:    [1 2 3 4 5] [3 <] filter [1 2] equal? .
+    *)
+    filter          ==  [split] :i pop ;
 
    (*  `from-to` — generates list of integers from start to end with custom list builder quotation.
     *
