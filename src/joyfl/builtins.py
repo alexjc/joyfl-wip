@@ -18,7 +18,7 @@ def load_builtins_library():
         'i': comb_i,
         'dip': comb_dip,
         'step': comb_step,
-        ',,,': comb_cont,
+        '...': comb_cont,
     }
     quotations = {}
     constants = {'true': True, 'false': False}
