@@ -1,7 +1,4 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
-#
-# joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
-#
 
 from .types import Operation
 from .parser import parse
@@ -45,7 +42,7 @@ def comb_cont(this: Operation, queue, *stack, lib):
         value = input("\033[4 q\033[36m  ...  \033[0m")
         if value.strip():
             for typ, data in parse(value, start='term'):
-                program, _ = link_body(data, meta={'filename': '<REPL>', 'lines': (1, 1)}, globals_=lib)
+                program, _ = link_body(data, meta={'filename': '<REPL>', 'lines': (1, 1)}, lib=lib)
     except Exception as e:
         print('EXCEPTION: comb_cont could not parse or compile the text.', e)
         import traceback; traceback.print_exc(limit=2)
@@ -55,4 +52,3 @@ def comb_cont(this: Operation, queue, *stack, lib):
     if program:
         queue.extendleft(reversed(program + [this]))
     return stack
-

@@ -23,7 +23,7 @@ stack_effect: COLON LPAREN stack_pattern ARROW stack_pattern RPAREN
 stack_pattern: stack_item*
 stack_item: NAME | LSQB stack_pattern RSQB
 
-?term: (NAME | FLOAT | INTEGER | FRACTION | CHAR | STRING | LBRACE CHAR_OR_INT* RBRACE | LSQB term RSQB)*
+?term: (NAME | ELLIPSIS | FLOAT | INTEGER | FRACTION | CHAR | STRING | LBRACE CHAR_OR_INT* RBRACE | LSQB term RSQB)*
 
 // COMMENTS
 COMMENT.11: /#[^\r\n]*/
@@ -31,6 +31,7 @@ MULTILINE_COMMENT.11: /\(\*.*?\*\)/s
 
 // TOKENS
 END.9: "END"
+ELLIPSIS.10: /\.\.\./
 DOT.9: /\.(?![A-Za-z0-9!+\-=<>_,?.])/
 SEPARATOR: ";"
 STRING.8: /"(?:[^"\\]|\\.)*"/
