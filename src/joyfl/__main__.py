@@ -57,7 +57,8 @@ class JoyRunner:
         base = Path(__file__).resolve().parent
         candidates = (d / 'libs' / 'stdlib.joy' for d in (base, *base.parents[:2]))
         stdlib_path = next((p for p in candidates if p.exists()), Path('libs/stdlib.joy'))
-        self.runtime.load(stdlib_path.read_text(encoding='utf-8'), filename='libs/stdlib.joy', validate=self.validate)
+        source_text = stdlib_path.read_text(encoding='utf-8')
+        self._load_library(source_text, 'libs/stdlib.joy', validate=self.validate)
 
     def _maybe_fatal_error(self, message: str, detail: str, exc_type: str = None, context: str = '', is_repl: bool = False) -> None:
         header = detail if not exc_type else f"{detail} (Exception: \033[33m{exc_type}\033[0m)"
@@ -96,11 +97,19 @@ class JoyRunner:
             if not is_repl and not self.ignore: sys.exit(1)
         return False
 
+    def _load_library(self, source: str, filename: str, validate: bool | None = None) -> bool:
+        try:
+            self.runtime.load(source, filename=filename, validate=self.validate if validate is None else validate)
+            return True
+        except (JoyError, Exception) as exc:
+            self._handle_exception(exc, filename, source, is_repl=False)
+            return False
+
     def execute_items(self, items: list[ExecutionItem]) -> None:
         for item in items:
-            self._execute_single(item.source, item.filename)
+            self._execute_script(item.source, item.filename)
 
-    def _execute_single(self, source: str, filename: str, is_repl: bool = False) -> None:
+    def _execute_script(self, source: str, filename: str, is_repl: bool = False) -> None:
         try:
             result = self.runtime.run(source, filename=filename, verbosity=self.verbose, validate=self.validate, stats=self.total_stats)
             if result is None and not is_repl:
@@ -237,7 +246,8 @@ def run_module(ctx: click.Context, name: str) -> None:
         if not src.exists():
             continue
         existing = set(runner.runtime.library.quotations.keys())
-        runner.runtime.load(src.read_text(encoding='utf-8'), filename=str(src), validate=ctx.obj['config'].validate)
+        source_text = src.read_text(encoding='utf-8')
+        runner.load_item(source_text, str(src), validate=ctx.obj['config'].validate)
         # Namespace new public quotations for dotted access (module.term)
         for qname in runner.runtime.library.quotations.keys() - existing:
             if '.' in qname:
@@ -285,7 +295,7 @@ def run_repl(ctx: click.Context) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     a = list(sys.argv[1:] if argv is None else argv)
-    g = [t for t in a if t in ('--validate','--ignore','--stats','--plain') or t.startswith('-v')]
+    g = [t for t in a if t in ('--validate','--ignore','--stats','--plain','-i','-p') or t.startswith('-v')]
     r = [t for t in a if t not in g]
     pos = [t for t in r if not t.startswith('-')]
 
