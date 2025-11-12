@@ -111,3 +111,5 @@ def test_stack_bool_disallowed():
 def test_stack_representation():
     assert repr(nil) == "< nil >"
     assert repr(J.to_stack([1, 2])) == "< 2 1 >"
+    s = Stack(Stack(Stack(nil, 1), 2), "hello")
+    assert repr(s) == "< 1 2 'hello' >"
