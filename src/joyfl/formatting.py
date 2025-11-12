@@ -10,6 +10,13 @@ from .types import stack_list, Stack, nil
 
 
 def stack_to_list(stk: Stack) -> stack_list:
+    # Accept the current stack passed as a (tail, head) tuple (e.g., wrappers that call fn(*stk)).
+    if isinstance(stk, tuple) and not isinstance(stk, Stack):
+        tail, head = stk
+        if tail is None and head is None:
+            return stack_list([])
+        # Fall through; the generic loop below will first unpack the pair,
+        # then continue with the Stack in `tail`.
     result = []
     while stk is not nil:
         stk, head = stk
@@ -38,7 +45,7 @@ def format_item(it, width=None, indent=0):
         if width is None or len(single_line) + indent <= width: return single_line
         # Otherwise use multi-line format...
         result = lhs + '   '
-        for i, item in enumerate(formatted_items):
+        for i, item in enumerate(reversed(formatted_items) if is_stack else formatted_items):
             if i > 0: result += '\n' + (' ' * (indent + 4))
             result += item
         result += '\n' + (' ' * indent) + rhs
