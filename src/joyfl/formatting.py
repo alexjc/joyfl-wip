@@ -50,7 +50,7 @@ def _format_item(it, width=None, indent=0, abbreviate: bool = False):
         result += '\n' + (' ' * indent) + rhs
         return result
     if isinstance(it, str):
-        return f'≪string:{len(it)}≫' if abbreviate else repr(it)
+        return f'≪string:{len(it)}≫' if abbreviate else '"' + it.replace('"', '\\"') + '"'
     if isinstance(it, bool): return str(it).lower()
     if isinstance(it, bytes): return str(it)[1:-1]
     return str(it)

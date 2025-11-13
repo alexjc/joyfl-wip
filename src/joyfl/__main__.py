@@ -109,12 +109,14 @@ class JoyRunner:
         for item in items:
             self._execute_script(item.source, item.filename)
 
-    def _execute_script(self, source: str, filename: str, is_repl: bool = False) -> None:
+    def _execute_script(self, source: str, filename: str, is_repl: bool = False, print_result: bool = False) -> None:
         try:
             result = self.runtime.run(source, filename=filename, verbosity=self.verbose, validate=self.validate, stats=self.total_stats)
             if result is None and not is_repl:
                 self.failure = True
                 if not self.ignore: sys.exit(1)
+            elif print_result and result is not nil:
+                print(format_item(result.head))
         except (JoyError, Exception) as exc:
             self._handle_exception(exc, filename, source, is_repl=is_repl)
         else:
@@ -273,7 +275,8 @@ def run_dev(ctx: click.Context, tokens: tuple[str, ...]) -> None:
         if action == 'file':
             runner.execute_items((ExecutionItem(payload.read_text(encoding='utf-8'), str(payload)),))
         elif action == 'command':
-            runner.execute_items((_inline_command_source(command_index, payload),))
+            item = _inline_command_source(command_index, payload)
+            runner._execute_script(item.source, item.filename, is_repl=False, print_result=True)
             command_index += 1
         elif action == 'repl':
             runner.repl()
@@ -298,6 +301,7 @@ def main(argv: list[str] | None = None) -> None:
     g = [t for t in a if t in ('--validate','--ignore','--stats','--plain','-i','-p') or t.startswith('-v')]
     r = [t for t in a if t not in g]
     pos = [t for t in r if not t.startswith('-')]
+    has_dev_opt = any(t in ('-c', '-r', '--repl') or t.startswith('--command') for t in r)
 
     if len(r) == 0:
         # No args: if stdin has data, treat as file '-', else REPL
@@ -315,7 +319,10 @@ def main(argv: list[str] | None = None) -> None:
         if tok.endswith('.joy') and Path(tok).exists():
             cmd, tail = 'run-file', [tok]
         else:
-            cmd, tail = 'run-mod', [tok]
+            if not has_dev_opt and all(part.isidentifier() for part in tok.split('.')):
+                cmd, tail = 'run-mod', [tok]
+            else:
+                cmd, tail = 'run-dev', r
     else:
         cmd, tail = 'run-dev', r
 
