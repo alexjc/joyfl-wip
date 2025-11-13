@@ -44,7 +44,7 @@ class JoyTypeError(JoyError, TypeError):
 
 
 class JoyImportError(JoyError, ImportError):
-    def __init__(self, message, *, joy_op=None, joy_token: str | None = None, filename=None, joy_meta=None):
+    def __init__(self, message, *, joy_op=None, joy_token=None, filename=None, joy_meta=None):
         super().__init__(message, joy_op=joy_op, joy_token=joy_token, joy_meta=joy_meta)
         self.filename = filename
 
