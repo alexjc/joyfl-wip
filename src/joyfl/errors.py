@@ -48,3 +48,15 @@ class JoyImportError(JoyError, ImportError):
 
 class JoyModuleError(JoyImportError):
     pass
+
+
+def normalize_to_joy_error(exc: Exception) -> JoyError:
+    """Convert any Python exception into a JoyError instance.
+    - If already a JoyError, pass through.
+    - Otherwise wrap in JoyRuntimeError, preserving any Joy metadata if present.
+    """
+    if isinstance(exc, JoyError):
+        return exc
+    joy_op = getattr(exc, 'joy_op', None)
+    joy_meta = getattr(exc, 'joy_meta', None)
+    return JoyRuntimeError(str(exc), joy_op=joy_op, joy_meta=joy_meta)

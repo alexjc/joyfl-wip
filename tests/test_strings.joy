@@ -1,0 +1,37 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+# test_strings.joy — String operation tests
+#
+
+DEFINE
+
+    expect-equal == equal? ;
+
+END.
+
+# Return a list of test specifications
+[
+    ["concatenating two strings should work"
+     "hello" " world" str-concat "hello world" expect-equal]
+    
+    ["string matching should find substring"
+     "world" "hello world" str-contains?]
+
+    ["format inserts list values"
+     [1 2] "%1-%2" text.format "1-2" expect-equal]
+
+    ["format escapes percent"
+     [] "%% done" text.format "% done" expect-equal]
+
+    # ["format out-of-range placeholder raises"
+    #  [ [1] "%2" text.format ] raises? pop]
+
+    # ["format invalid placeholder raises"
+    #  [ [] "%a" text.format ] raises? pop]
+
+    ["format out-of-range placeholder raises"
+     [ [1] "%2" text.format ] "JoyValueError" expect-raises true]
+
+    ["format invalid placeholder raises"
+     [ [] "%a" text.format ] "JoyValueError" expect-raises true]
+].

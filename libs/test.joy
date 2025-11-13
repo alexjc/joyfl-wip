@@ -1,0 +1,88 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+# test.joy — Joy-based test runner with summary
+#
+
+DEFINE
+
+    # Process one test and collect result: [desc code...] -- passed?
+    process-and-report      :  ([desc code] -- flag:bool)
+                            ==  uncons                      # desc [code...]
+                                i                           # desc passed?
+                                dup                         # desc passed? passed?
+                                [["\033[32m ✓ \033[0m"]]
+                                [["\033[31m ✗ \033[0m"]]
+                                :branch first                # desc passed? checkmark
+                                [swap] :dip                  # checkmark desc passed?
+                                swap str-concat put!        # passed?
+                                ;
+
+    raises?                 :  ([q] -- raised? error)
+                            ==  exec!
+                                dup not swap
+                                swap
+                                [ false swap choice ] :dip
+                                swap ;
+
+    expect-no-raise         :  ([q] -- )
+                            ==  raises? pop not assert! ;
+
+    # Assert a quotation raises and matches expected kind or predicate
+    expect-raises           :  ([q] expected -- )
+                            ==  [exec!] :dip          # -> result ok expected
+                                swap                   # -> result expected ok
+                                not assert!           # ok must be false
+                                dup list?
+                                [ swap i assert! ]    # predicate quotation: expected error -> bool
+                                [ swap error-kind swap str-cast equal? assert! ]  # kind string
+                                :branch ;
+
+    # Count pass/fail results from a list of booleans
+    tally-results           :  (list[bool] -- [pass:int fail:int])
+                            ==  dup
+                                [not] :filter size
+                                swap
+                                [id] :filter size
+                                swap pair ;
+
+    # Add two pairs of pass/fail statistics
+    add-stats               :  ([p1 f1] [p2 f2] -- [p_sum f_sum])
+                            ==  pair
+                                [ unpair first swap first + ]
+                                [ unpair second swap second + ]
+                                cleave
+                                pair ;
+
+    # Format the final summary string from statistics
+    format-results          :  ([pass fail] files -- str)
+                            ==  
+                                swap unpair
+                                over over +
+                                rollup                      # files total fail pass
+                                [] append append append append
+                                "\n%2 pass\n%1 fail\nRan %3 checks across %4 files.\n"
+                                text.format ;
+
+    # Process one test file, return list of results.
+    process-file : (filename -- [pass:int fail:int])
+        ==  dup "\n\033[47;30m TEST \033[0m " swap str-concat put!
+            os.exec-file!
+            [ process-and-report ]
+            :map
+            tally-results
+            ;
+
+    # Discover and process test files
+    main    ==
+                # "joyfl test \033[90m(v0.5)\033[0m" put!
+                "tests/test_*.joy"
+                os.list-files!
+                dup size
+                [ [process-file] :map ] :dip
+                swap
+                [0 0] [add-stats] :foldl
+                swap
+                format-results put!
+            ;
+
+END.

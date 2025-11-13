@@ -1,0 +1,7 @@
+{
+  "setup-worktree": [
+    "uv venv",
+    "uv pip install pytest",
+    "uv sync"
+  ]
+}

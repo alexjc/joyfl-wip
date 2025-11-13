@@ -86,3 +86,16 @@ def op_dict_new() -> dict: return {}
 def op_dict_q(d: dict) -> bool: return isinstance(d, dict)
 def op_dict_store(d: dict, k: bytes, v: Any) -> dict: return d.__setitem__(k, v) or d
 def op_dict_fetch(d: dict, k: bytes) -> Any: return d[k]
+
+# ERROR ACCESSORS
+def op_error_kind(e: Exception) -> str:
+    return e.__class__.__name__
+
+def op_error_message(e: Exception) -> str:
+    return str(e)
+
+def op_error_data(e: Exception) -> Any:
+    data = {}
+    if hasattr(e, 'joy_op'): data['joy_op'] = getattr(e, 'joy_op')
+    if hasattr(e, 'joy_meta'): data['joy_meta'] = getattr(e, 'joy_meta')
+    return data
