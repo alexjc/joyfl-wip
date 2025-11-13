@@ -4,6 +4,7 @@ import math
 from typing import Any, TypeVar
 from fractions import Fraction
 
+from .types import Stack, nil
 from .errors import JoyAssertionError
 from .formatting import stack_to_list, list_to_stack, format_item
 
@@ -63,12 +64,14 @@ X, Y = (TypeVar(v, bound=Any) for v in ('X', 'Y'))
 def op_swap(b: Y, a: X) -> tuple[X, Y]: return (a, b)
 def op_dup(x: X) -> tuple[X, X]: return (x, x)
 def op_pop(_: Any) -> None: return None
-def op_stack(*s: Any) -> list: return stack_to_list(s)
+def op_stack(s: Stack) -> list: return stack_to_list(s)
 def op_unstack(x: list) -> tuple: return list_to_stack(x)
-def op_stack_size(*s: Any) -> int: return len(stack_to_list(s))
+def op_stack_size(s: Stack) -> int: return len(stack_to_list(s))
 # INPUT/OUTPUT
 def op_id(x: Any) -> Any: return x
-def op_put_b(x: Any) -> None: print('\033[97m' + format_item(x, width=120) + '\033[0m')
+def op_put_b(x: Any) -> None:
+    text = x if isinstance(x, str) else format_item(x, width=120)
+    print('\033[97m' + text + '\033[0m')
 def op_assert_b(x: bool) -> None:
     if not x: raise JoyAssertionError
 def op_raise_b(x: Any) -> None: raise x

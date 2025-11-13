@@ -81,6 +81,19 @@ def _is_stack_annotation(annotation: Any) -> bool:
 
 
 def get_stack_effects(*, fn: Callable, name: str = None) -> dict:
+    """Parse the type annotations from Python to determine the stack effects in Joy.
+
+    Arity (input) conventions:
+        -2: pass entire stack as-is to function
+        -1: expand stack into varargs (*stk)
+        >=0: pop that many items from the stack
+
+    Valency (output) conventions:
+        -1: replace stack with retval
+        0: no changes to stack
+        1: single output expected
+        >=1: tuple of multiple outputs expected
+    """
     assert fn is not None, "Must specify the function if name is not in signature cache."
 
     sig = inspect.signature(fn)
@@ -116,12 +129,14 @@ def get_stack_effects(*, fn: Callable, name: str = None) -> dict:
         raw_ret = get_args(ret_ann) if returns_tuple else (ret_ann,)
         outputs = [_normalize_expected_type(t) for t in raw_ret]
 
+    # Special cases when stack be passed in directly and restored directly.
+    pass_stack = (len(positional) == 1 and _is_stack_annotation(positional[0].annotation) and not has_varargs)
     replace_stack = (name in {'unstack'}) or allow_variadic_stack  # Allow stack replacement semantics.
 
     meta = {
-        'arity': -1 if (has_varargs and len(positional) == 0) else len(positional),
+        'arity': (-2 if pass_stack else (-1 if (has_varargs and len(positional) == 0) else len(positional))),
         'valency': -1 if replace_stack else (0 if returns_none else (len(outputs) if returns_tuple else 1)),
-        'inputs': list(reversed([_normalize_expected_type(p.annotation) for p in positional])),
+        'inputs': [] if pass_stack else list(reversed([_normalize_expected_type(p.annotation) for p in positional])),
         'outputs': list(reversed(outputs)),
     }
     return meta
