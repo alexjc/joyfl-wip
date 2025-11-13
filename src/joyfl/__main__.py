@@ -79,7 +79,7 @@ class JoyRunner:
             print(f'\033[30;43m ASSERTION FAILED. \033[0m Function \033[1;97m`{exc.joy_op}`\033[0m raised an error.\n', file=sys.stderr)
             print_source_lines(exc.joy_op, self.runtime.library.quotations, file=sys.stderr)
             print(f'\033[1;33m  Stack content is\033[0;33m\n    ', end='', file=sys.stderr)
-            show_stack(exc.joy_stack, width=None, file=sys.stderr)
+            show_stack(exc.joy_stack, width=None, file=sys.stderr, abbreviate=True)
             print('\033[0m', file=sys.stderr)
             if not is_repl and not self.ignore: sys.exit(1)
         elif isinstance(exc, JoyImportError):

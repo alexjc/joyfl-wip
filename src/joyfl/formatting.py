@@ -51,15 +51,15 @@ def _format_item(it, width=None, indent=0, abbreviate: bool = False):
 def format_item(it, width=None, indent=0):
     return _format_item(it, width=width, indent=indent, abbreviate=False)
 
-def show_stack(stack, width=72, end='\n', file=None):
+def show_stack(stack, width=72, end='\n', file=None, abbreviate: bool = False):
     if stack is nil:
         stack_str = '∅'
     else:
         items = stack_to_list(stack)
         # First render without abbreviation, check if it fits on screen.
         stack_str = ' '.join(_format_item(s, width=width, abbreviate=False) for s in reversed(items))
-        # If diagnostic mode (width=None) and the rendered output is long, re-render abbreviated
-        if width is None and len(stack_str) > 144:
+        # If abbreviation requested and the rendered output is long, re-render abbreviated.
+        if abbreviate and len(stack_str) > 144:
             stack_str = ' '.join(_format_item(s, width=None, abbreviate=True) for s in reversed(items))
 
     if width is not None and len(stack_str) > width:
