@@ -72,8 +72,8 @@ class JoyRunner:
             context += f"\n\033[90m{str(exc).replace(chr(10), ' ').replace(chr(9), ' ')}\033[0m\n"
             self._maybe_fatal_error("SYNTAX ERROR.", f"Parsing `\033[97m{filename}\033[0m` caused a problem!", type(exc).__name__, context, is_repl)
         elif isinstance(exc, JoyNameError):
-            detail = f"Term `\033[1;97m{exc.joy_op}\033[0m` from `\033[97m{filename}\033[0m` was not found in library!"
-            context = '\n' + format_source_lines(exc.joy_meta, exc.joy_op)
+            detail = f"Term `\033[1;97m{exc.joy_token}\033[0m` from `\033[97m{filename}\033[0m` was not found in library!"
+            context = '\n' + format_source_lines(exc.joy_meta, exc.joy_token)
             self._maybe_fatal_error("LINKER ERROR.", detail, type(exc).__name__, context, is_repl)
         elif isinstance(exc, JoyAssertionError):
             print(f'\033[30;43m ASSERTION FAILED. \033[0m Function \033[1;97m`{exc.joy_op}`\033[0m raised an error.\n', file=sys.stderr)
@@ -83,10 +83,10 @@ class JoyRunner:
             print('\033[0m', file=sys.stderr)
             if not is_repl and not self.ignore: sys.exit(1)
         elif isinstance(exc, JoyImportError):
-            detail = f"Importing library module failed while resolving `{exc.joy_op}`: \033[97m{exc.filename}\033[0m"
+            detail = f"Importing library module failed while resolving `{exc.joy_token}`: \033[97m{exc.filename}\033[0m"
             tb_lines = traceback.format_exception(exc.__cause__ if exc.__cause__ else exc, chain=False)
             traceback_text = ''.join([line for line in tb_lines if "src/joyfl/" not in line and "<frozen" not in line]).rstrip() + '\n'
-            source_context = format_source_lines(exc.joy_meta, exc.joy_op)
+            source_context = format_source_lines(exc.joy_meta, exc.joy_token)
             self._maybe_fatal_error("IMPORT ERROR.", detail, type(exc).__name__, '\n' + '\n'.join((traceback_text, source_context)), is_repl)
         elif isinstance(exc, Exception):
             print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{exc.joy_op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)', file=sys.stderr)

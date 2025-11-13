@@ -37,22 +37,22 @@ def load_library_module(ns: str, meta: dict):
             try:
                 spec.loader.exec_module(module)
             except (SyntaxError, ImportError, Exception) as e:
-                raise JoyModuleError(str(e), filename=mod_path, joy_op=ns, joy_meta=meta) from e
+                raise JoyModuleError(str(e), filename=mod_path, joy_token=ns, joy_meta=meta) from e
         _LIB_MODULES[ns] = module
         return module
-    raise JoyModuleError(f"Module `{ns}` not found.", joy_op=ns, joy_meta=meta)
+    raise JoyModuleError(f"Module `{ns}` not found.", joy_token=ns, joy_meta=meta)
 
 
 def resolve_module_op(ns: str, name: str, *, meta: dict | None = None):
     py_module = load_library_module(ns, meta=meta)
     # Require explicit operator registry on module; otherwise treat as module error.
     if not hasattr(py_module, '__operators__') or not isinstance(getattr(py_module, '__operators__'), list):
-        raise JoyModuleError(f"Module `{ns}` is missing operator registry `__operators__`.", joy_op=f"{ns}", joy_meta=meta)
+        raise JoyModuleError(f"Module `{ns}` is missing operator registry `__operators__`.", joy_token=f"{ns}", joy_meta=meta)
     if not (py_name := get_python_name(name)) and py_module is None: return None
     # All modules require an explicit registry of operators defined.
     for w in getattr(py_module, '__operators__', []):
         if getattr(w, '__name__', '') == py_name: return w
-    raise JoyNameError(f"Operation `{py_name}` not found in module `{ns}`.", joy_op=f"{ns}.{name}", joy_meta=meta)
+    raise JoyNameError(f"Operation `{py_name}` not found in module `{ns}`.", joy_token=f"{ns}.{name}", joy_meta=meta)
 
 
 def _normalize_expected_type(tp):

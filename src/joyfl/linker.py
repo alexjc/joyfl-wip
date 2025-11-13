@@ -60,7 +60,7 @@ def link_body(tokens: list, meta: dict, lib: Library):
         elif (fn := lib.get_function(token, meta=mt)):
             output.append(Operation(Operation.FUNCTION, fn, token, mt))
         else:
-            raise JoyNameError(f"Unknown instruction `{token}`.", joy_op=token, joy_meta=mt)
+            raise JoyNameError(f"Unknown instruction `{token}`.", joy_token=token, joy_meta=mt)
 
     assert len(stack) == 0
     return output, meta

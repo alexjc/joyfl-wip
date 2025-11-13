@@ -41,7 +41,7 @@ class Library:
             fn.__joy_meta__ = meta
             self.functions[resolved_name] = fn
             return fn
-        raise JoyNameError(f"Operation `{name}` not found in library.", joy_op=name, joy_meta=meta)
+        raise JoyNameError(f"Operation `{name}` not found in library.", joy_token=name, joy_meta=meta)
 
 
 def _make_wrapper(fn: Callable[..., Any], name: str) -> Callable[..., Any]:

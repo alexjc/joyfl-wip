@@ -28,7 +28,7 @@ def test_missing_operator_registry_raises_module_error(tmp_path, monkeypatch):
         resolve_module_op("broken", "foo", meta={"filename": "<test>", "line": 1, "column": 1})
 
     assert "missing operator registry" in str(e.value).lower()
-    assert e.value.joy_op == "broken"
+    assert e.value.joy_token == "broken"
 
 
 def test_wrong_registry_type_raises_module_error(tmp_path, monkeypatch):
@@ -40,7 +40,7 @@ def test_wrong_registry_type_raises_module_error(tmp_path, monkeypatch):
         resolve_module_op("wrong", "foo", meta={"filename": "<test>"} )
 
     assert "missing operator registry" in str(e.value).lower()
-    assert e.value.joy_op == "wrong"
+    assert e.value.joy_token == "wrong"
 
 
 def test_missing_operation_raises_name_error(tmp_path, monkeypatch):
@@ -52,4 +52,4 @@ def test_missing_operation_raises_name_error(tmp_path, monkeypatch):
         resolve_module_op("ok", "absent", meta={"filename": "<test>"} )
 
     assert "not found in module" in str(e.value).lower()
-    assert e.value.joy_op == "ok.absent"
+    assert e.value.joy_token == "ok.absent"
