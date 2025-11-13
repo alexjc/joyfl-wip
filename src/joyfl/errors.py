@@ -4,10 +4,12 @@ import lark
 
 
 class JoyError(Exception):
-    def __init__(self, message: str = "", *, joy_op=None, joy_meta=None):
+    def __init__(self, message: str = "", *, joy_op=None, joy_token=None, joy_meta=None):
+        """Base class for all Joy-raised errors."""
         super().__init__(message)
-        self.joy_op = joy_op
-        self.joy_meta = joy_meta
+        self.joy_op: object = joy_op
+        self.joy_token: str = joy_token
+        self.joy_meta: dict = joy_meta
 
 class JoyParseError(JoyError):
     def __init__(self, message, *, filename=None, line=None, column=None, token=None):
@@ -42,8 +44,8 @@ class JoyTypeError(JoyError, TypeError):
 
 
 class JoyImportError(JoyError, ImportError):
-    def __init__(self, message, *, joy_op=None, filename=None, joy_meta=None):
-        super().__init__(message, joy_op=joy_op, joy_meta=joy_meta)
+    def __init__(self, message, *, joy_op=None, joy_token=None, filename=None, joy_meta=None):
+        super().__init__(message, joy_op=joy_op, joy_token=joy_token, joy_meta=joy_meta)
         self.filename = filename
 
 class JoyModuleError(JoyImportError):

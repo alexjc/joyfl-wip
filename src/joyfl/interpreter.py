@@ -115,6 +115,7 @@ def interpret(program: list, stack=None, lib: Library = None, verbosity=0, valid
             stack, program = interpret_step(program, stack, lib)
         except Exception as exc:
             exc.joy_op = op
+            exc.joy_token = op.name
             exc.joy_stack = stack
             raise
 
