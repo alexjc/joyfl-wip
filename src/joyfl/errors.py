@@ -24,6 +24,9 @@ class JoyIncompleteParse(JoyParseError, lark.exceptions.ParseError):
 class JoyNameError(JoyError, NameError):
     pass
 
+class JoyValueError(JoyError, ValueError):
+    pass
+
 class JoyRuntimeError(JoyError, RuntimeError):
     pass
 
@@ -33,7 +36,6 @@ class JoyAssertionError(JoyError, AssertionError):
 
 class JoyTypeMissing(JoyError, TypeError):
     pass
-
 
 class JoyTypeError(JoyError, TypeError):
     pass
