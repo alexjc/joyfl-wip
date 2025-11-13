@@ -89,7 +89,7 @@ class JoyRunner:
             source_context = format_source_lines(exc.joy_meta, exc.joy_op)
             self._maybe_fatal_error("IMPORT ERROR.", detail, type(exc).__name__, '\n' + '\n'.join((traceback_text, source_context)), is_repl)
         elif isinstance(exc, Exception):
-            print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{exc.joy_op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)\n', file=sys.stderr)
+            print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{exc.joy_op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)', file=sys.stderr)
             tb_lines = traceback.format_exc().split('\n')
             print(*[line for line in tb_lines if 'lambda' in line], sep='\n', end='\n', file=sys.stderr)
             print_source_lines(exc.joy_op, self.runtime.library.quotations, file=sys.stderr)
@@ -247,7 +247,7 @@ def run_module(ctx: click.Context, name: str) -> None:
             continue
         existing = set(runner.runtime.library.quotations.keys())
         source_text = src.read_text(encoding='utf-8')
-        runner.load_item(source_text, str(src), validate=ctx.obj['config'].validate)
+        runner._load_library(source_text, str(src), validate=ctx.obj['config'].validate)
         # Namespace new public quotations for dotted access (module.term)
         for qname in runner.runtime.library.quotations.keys() - existing:
             if '.' in qname:

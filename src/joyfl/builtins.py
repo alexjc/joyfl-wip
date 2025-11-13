@@ -40,5 +40,3 @@ def load_builtins_library():
 
     lib.ensure_consistent()
     return lib
-
-
