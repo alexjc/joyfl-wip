@@ -1,8 +1,10 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
-from .types import Operation
+from .types import Operation, Stack, nil
+from .errors import JoyError
 from .parser import parse
-from .formatting import show_stack
+from .formatting import show_stack, stack_to_list
+from .interpreter import interpret
 
 
 def comb_i(_, queue, tail, head, lib):
@@ -52,3 +54,19 @@ def comb_cont(this: Operation, queue, *stack, lib):
     if program:
         queue.extendleft(reversed(program + [this]))
     return stack
+
+def comb_exec_b(_, queue, tail: Stack, head: list|tuple, lib):
+    """Evaluate a quotation on a fresh stack and capture outcome, returning either
+    the entire stack or the error object, below a flag indicating success.
+
+    :: ([quot] -- result ok:bool)
+    """
+    assert isinstance(head, (list, tuple))
+    is_ok, result = False, nil
+    try:
+        result_stack = interpret(head, stack=None, lib=lib)
+        is_ok, result = True, stack_to_list(result_stack)
+    except JoyError as exc:
+        result = exc
+
+    return tail.pushed(result, is_ok)

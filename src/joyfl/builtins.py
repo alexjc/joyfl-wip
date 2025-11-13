@@ -1,8 +1,8 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
-from .library import Library
 from . import operators
-from .combinators import comb_i, comb_dip, comb_step, comb_cont
+from .library import Library
+from .combinators import comb_i, comb_dip, comb_step, comb_cont, comb_exec_b
 
 
 def _joy_name_from_python(py_name: str) -> str:
@@ -19,6 +19,7 @@ def load_builtins_library():
         'dip': comb_dip,
         'step': comb_step,
         '...': comb_cont,
+        'exec!': comb_exec_b,
     }
     quotations = {}
     constants = {'true': True, 'false': False}

@@ -36,6 +36,13 @@ class Stack(namedtuple('Stack', ['tail', 'head'])):
     def __bool__(self):
         raise TypeError("Stack truth value is ambiguous; compare with `is nil` or `is not nil`.")
 
+    def pushed(self, *items):
+        """Push items in order of tail (left) to head (right) onto new Stack and return."""
+        stack = self
+        for it in items:
+            stack = Stack(stack, it)
+        return stack
+
 # All checks for empty stack must be done by comparing to this.
 nil = Stack(None, None)
 
