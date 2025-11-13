@@ -1,7 +1,4 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
-#
-# joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
-#
 
 import re
 import sys
@@ -35,11 +32,13 @@ def write_without_ansi(write_fn):
     ansi_re = re.compile(r'\033\[[0-9;]*m')
     return lambda text: write_fn(ansi_re.sub('', text))
 
-def format_item(it, width=None, indent=0):
+def _format_item(it, width=None, indent=0, abbreviate: bool = False):
     if (is_stack := isinstance(it, stack_list)) or isinstance(it, list):
+        if abbreviate and not is_stack:
+            return f'≪list:{len(it)}≫'
         items = reversed(it) if is_stack else it
         lhs, rhs = ('<', '>') if is_stack else ('[', ']')
-        formatted_items = [format_item(i, width, indent + 4) for i in items]
+        formatted_items = [_format_item(i, width, indent + 4, abbreviate=abbreviate) for i in items]
         single_line = lhs + ' '.join(formatted_items) + rhs
         # If it fits on one line, use single line format.
         if width is None or len(single_line) + indent <= width: return single_line
@@ -50,14 +49,27 @@ def format_item(it, width=None, indent=0):
             result += item
         result += '\n' + (' ' * indent) + rhs
         return result
-    if isinstance(it, str) and indent > 0: return f'"{it.replace(chr(34), chr(92)+chr(34))}"'
+    if isinstance(it, str):
+        return f'≪string:{len(it)}≫' if abbreviate else repr(it)
     if isinstance(it, bool): return str(it).lower()
     if isinstance(it, bytes): return str(it)[1:-1]
     return str(it)
 
-def show_stack(stack, width=72, end='\n', file=None):
-    stack_str = ' '.join(format_item(s) for s in reversed(stack_to_list(stack))) if stack is not nil else '∅'
-    if len(stack_str) > (width or sys.maxsize):
+def format_item(it, width=None, indent=0):
+    return _format_item(it, width=width, indent=indent, abbreviate=False)
+
+def show_stack(stack, width=72, end='\n', file=None, abbreviate: bool = False):
+    if stack is nil:
+        stack_str = '∅'
+    else:
+        items = stack_to_list(stack)
+        # First render without abbreviation, check if it fits on screen.
+        stack_str = ' '.join(_format_item(s, width=width, abbreviate=False) for s in reversed(items))
+        # If abbreviation requested and the rendered output is long, re-render abbreviated.
+        if abbreviate and len(stack_str) > 144:
+            stack_str = ' '.join(_format_item(s, width=None, abbreviate=True) for s in reversed(items))
+
+    if width is not None and len(stack_str) > width:
         stack_str = '… ' + stack_str[-width+2:]
     print(f"{stack_str:>{width}}" if width else stack_str, end=end, file=file)
 

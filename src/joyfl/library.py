@@ -60,10 +60,18 @@ def _make_wrapper(fn: Callable[..., Any], name: str) -> Callable[..., Any]:
                 return base
 
     match meta['arity']:
-        case -1:
+        case -2: # pass stack as-is
+            def w_s(stk: Stack):
+                return push(stk, fn(stk))
+            return w_s, meta
+        case -1: # expand stack
             def w_n(stk: Stack):
                 return push(stk, fn(*stk))
             return w_n, meta
+        case 0: # no arguments
+            def w_0(stk: Stack):
+                return push(stk, fn())
+            return w_0, meta
         case 1:
             def w_1(stk: Stack):
                 base, a = stk

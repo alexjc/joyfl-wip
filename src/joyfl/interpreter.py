@@ -100,7 +100,7 @@ def interpret(program: list, stack=None, lib: Library = None, verbosity=0, valid
             if (check := can_execute(program[0], stack)) and not check[0]:
                 print(f'\033[30;43m TYPE ERROR. \033[0m {check[1]}\n', file=sys.stderr)
                 print(f'\033[1;33m  Stack content is\033[0;33m\n    ', end='', file=sys.stderr)
-                show_stack(stack, width=None, file=sys.stderr)
+                show_stack(stack, width=None, file=sys.stderr, abbreviate=True)
                 print('\033[0m', file=sys.stderr)
                 print_source_lines(program[0], lib.quotations, file=sys.stderr)
                 break
