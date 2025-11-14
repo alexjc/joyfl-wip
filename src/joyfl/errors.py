@@ -40,7 +40,15 @@ class JoyTypeMissing(JoyError, TypeError):
     pass
 
 class JoyTypeError(JoyError, TypeError):
+    """Loading-time problems from the type system, usually from Python-side."""
     pass
+
+
+class JoyStackError(JoyError, TypeError):
+    """Runtime type exceptions found by checking the stack and its content."""
+    def __init__(self, message: str = "", *, joy_op=None, joy_token=None, joy_meta=None, joy_stack=None):
+        super().__init__(message, joy_op=joy_op, joy_token=joy_token, joy_meta=joy_meta)
+        self.joy_stack = joy_stack
 
 
 class JoyImportError(JoyError, ImportError):

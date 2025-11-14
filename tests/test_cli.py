@@ -146,3 +146,14 @@ def test_cli_stdin_dash_runs_program():
     result = run_cli_input('"DASH" put! .\n', "-")
     assert result.returncode == 0
     assert _strip_output_lines(result.stdout) == ["DASH"]
+
+
+def test_cli_validate_stack_error_sets_retcode_and_shows_error(tmp_path: Path):
+    program = tmp_path / "type-error.joy"
+    program.write_text("i .\n", encoding="utf-8")
+    result = run_cli(program, extra_args=["--validate"])
+
+    assert result.returncode != 0
+    out = result.stdout
+    assert "VALIDATION ERROR." in out
+    assert "needs at least 1 item on the stack" in out

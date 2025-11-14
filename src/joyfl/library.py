@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from .types import Stack
-from .errors import JoyNameError
+from .errors import JoyNameError, JoyTypeError
 from .loader import get_stack_effects, resolve_module_op
 
 
@@ -37,8 +37,12 @@ class Library:
         if '.' in resolved_name:
             ns, op = resolved_name.split('.', 1)
             py_fn = resolve_module_op(ns, op, meta=meta)
-            fn, meta = _make_wrapper(py_fn, resolved_name)
-            fn.__joy_meta__ = meta
+            try:
+                fn, stack_meta = _make_wrapper(py_fn, resolved_name)
+            except JoyTypeError as exc:
+                exc.joy_token, exc.joy_meta = resolved_name, meta
+                raise
+            fn.__joy_meta__ = stack_meta
             self.functions[resolved_name] = fn
             return fn
         raise JoyNameError(f"Operation `{name}` not found in library.", joy_token=name, joy_meta=meta)
