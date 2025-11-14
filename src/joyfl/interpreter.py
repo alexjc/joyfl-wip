@@ -10,6 +10,7 @@ from .types import Operation, Stack, nil
 from .parser import print_source_lines
 from .library import Library
 from .formatting import show_stack, show_program_and_stack, stack_to_list
+from .errors import JoyStackError
 
 
 def _operation_signature(op: Operation):
@@ -98,13 +99,8 @@ def interpret(program: list, stack=None, lib: Library = None, verbosity=0, valid
     while program:
         if validate and isinstance(program[0], Operation):
             if (check := can_execute(program[0], stack)) and not check[0]:
-                print(f'\033[30;43m TYPE ERROR. \033[0m {check[1]}\n', file=sys.stderr)
-                print(f'\033[1;33m  Stack content is\033[0;33m\n    ', end='', file=sys.stderr)
-                show_stack(stack, width=None, file=sys.stderr, abbreviate=True)
-                print('\033[0m', file=sys.stderr)
-                print_source_lines(program[0], lib.quotations, file=sys.stderr)
-                break
-        
+                raise JoyStackError(check[1], joy_op=program[0], joy_token=program[0].name, joy_stack=stack)
+
         if verbosity == 2 or (verbosity == 1 and (is_notable(program[0]) or step == 0)):
             print(f"\033[90m{step:>3} :\033[0m  ", end='')
             show_program_and_stack(program, stack)

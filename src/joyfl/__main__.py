@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import click
 
 from .types import nil
-from .errors import JoyError, JoyParseError, JoyNameError, JoyIncompleteParse, JoyAssertionError, JoyImportError
+from .errors import JoyError, JoyParseError, JoyNameError, JoyIncompleteParse, JoyAssertionError, JoyImportError, JoyTypeError, JoyStackError
 from .parser import format_parse_error_context, print_source_lines, format_source_lines
 from .formatting import write_without_ansi, format_item, show_stack
 
@@ -88,6 +88,19 @@ class JoyRunner:
             traceback_text = ''.join([line for line in tb_lines if "src/joyfl/" not in line and "<frozen" not in line]).rstrip() + '\n'
             source_context = format_source_lines(exc.joy_meta, exc.joy_token)
             self._maybe_fatal_error("IMPORT ERROR.", detail, type(exc).__name__, '\n' + '\n'.join((traceback_text, source_context)), is_repl)
+        elif isinstance(exc, JoyTypeError):
+            filename = exc.joy_meta.get("filename", "<unknown>")
+            detail = f"Type information for `\033[1;97m{exc.joy_token}\033[0m` in \033[97m{filename}\033[0m is invalid: {str(exc)}"
+            tb_lines = traceback.format_exception(exc.__cause__ if exc.__cause__ else exc, chain=False)
+            traceback_text = ''.join([line for line in tb_lines if "src/joyfl/" not in line and "<frozen" not in line]).rstrip() + '\n'
+            self._maybe_fatal_error("TYPE ERROR.", detail, type(exc).__name__, '\n' + traceback_text, is_repl)
+        elif isinstance(exc, JoyStackError):
+            print(f'\033[30;43m VALIDATION ERROR. \033[0m {str(exc)}\n', file=sys.stderr)
+            print(f'\033[1;33m  Stack content is\033[0;33m\n    ', end='', file=sys.stderr)
+            show_stack(exc.joy_stack, width=None, file=sys.stderr, abbreviate=True)
+            print('\033[0m', file=sys.stderr)
+            print_source_lines(exc.joy_op, self.runtime.library.quotations, file=sys.stderr)
+            if not is_repl and not self.ignore: sys.exit(1)
         elif isinstance(exc, Exception):
             print(f'\033[30;43m RUNTIME ERROR. \033[0m Function \033[1;97m`{exc.joy_op}`\033[0m caused an error in interpret! (Exception: \033[33m{type(exc).__name__}\033[0m)', file=sys.stderr)
             tb_lines = traceback.format_exc().split('\n')
