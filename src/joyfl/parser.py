@@ -21,7 +21,7 @@ definition_sequence: definition (SEPARATOR definition)* SEPARATOR?
 definition: NAME stack_effect? EQUALS term
 stack_effect: COLON LPAREN stack_pattern ARROW stack_pattern RPAREN
 stack_pattern: stack_item*
-stack_item: NAME | LSQB stack_pattern RSQB
+stack_item: PARAM | LSQB PARAM RSQB | LBRACE PARAM+ RBRACE
 
 ?term: (NAME | ELLIPSIS | FLOAT | INTEGER | FRACTION | CHAR | STRING | LBRACE CHAR_OR_INT* RBRACE | LSQB term RSQB)*
 
@@ -49,6 +49,7 @@ LSQB: "["
 RSQB: "]"
 LBRACE: "{"
 RBRACE: "}"
+PARAM: /[A-Za-z]+(?::[A-Za-z]+)?/
 NAME: /[^\s\[\]\\(\){\}\;\.\#](?:[A-Za-z0-9!+\-=<>_,?.]*[A-Za-z0-9!+\-=<>_,?])?/
 
 // WHITESPACE
@@ -97,27 +98,43 @@ _TYPE_HINTS = {name for name in TYPE_NAME_MAP}
 def parse(source: str, start='start', filename=None):
     parser = lark.Lark(GRAMMAR, start=start, parser="lalr", lexer="contextual", propagate_positions=True)
 
+    def _param_entry(raw: str) -> dict:
+        label, _, type_name = raw.partition(':')
+        entry = {'label': label, 'type': None, 'quote': None, 'raw': raw}
+        if type_name:  # Explicit WORD:TYPE form.
+            assert label.lower() not in _TYPE_HINTS
+            entry['type'] = type_name
+        else:  # Bare WORD, determine if type or label.
+            if (lower := label.lower()) in _TYPE_HINTS:
+                entry['type'], entry['label'] = lower, None
+        return entry
+
     def _stack_pattern(tree):
         items = []
         for item in tree.children:
             if not isinstance(item, lark.Tree) or not item.children:
                 continue
-            first = item.children[0]
-            if isinstance(first, lark.Token) and first.type == 'NAME':
-                name = first.value
-                if name.startswith(':'):
-                    if items:
-                        items[-1]['type'] = name[1:] or None
-                    else:
-                        items.append({'label': None, 'type': name[1:] or None, 'quote': None, 'raw': name})
-                    continue
-                entry = {'label': name, 'type': None, 'quote': None, 'raw': name}
-                if (lower := name.lower()) in _TYPE_HINTS:
-                    entry['type'], entry['label'] = lower, None
-                items.append(entry)
+
+            children = item.children
+            # PARAM-based stack items: WORD or WORD:TYPE
+            if (first := children[0]) and isinstance(first, lark.Token) and first.type == 'PARAM':
+                items.append(_param_entry(first.value))
                 continue
-            if len(item.children) == 3 and isinstance(item.children[0], lark.Token) and item.children[0].type == 'LSQB':
-                items.append({'label': None, 'type': 'quote', 'quote': _stack_pattern(item.children[1]), 'raw': None})
+
+            assert isinstance(children[0], lark.Token) and isinstance(children[-1], lark.Token)
+            # LIST-implied stack items: [PARAM] single-item expected.
+            if children[0].type == 'LSQB' and children[-1].type == 'RSQB' and (inner := children[1]):
+                # By grammar, inner is always a single PARAM.
+                assert isinstance(inner, lark.Token) and inner.type == 'PARAM'
+                items.append({'quote': [_param_entry(inner.value)], 'label': None, 'type': 'list', 'raw': None})
+                continue
+            # TUPLE-specified product data-type; {PARAM ...} multiple items likely.
+            if children[0].type == 'LBRACE' and children[-1].type == 'RBRACE':
+                inner_items = [_param_entry(ch.value) for ch in children[1:-1]]
+                items.append({'quote': inner_items, 'label': None, 'type': 'list', 'raw': None})
+                continue
+            raise NotImplementedError("Unexpected bracket pattern in stack_item.")
+
         return items
 
     def _stack_effect(tree):
@@ -190,6 +207,7 @@ def parse(source: str, start='start', filename=None):
         error_class = JoyIncompleteParse if token_val == '' else JoyParseError
         raise error_class(str(exc), filename=filename, line=attr('line'), column=attr('column'), token=token_val) from None
     yield from _traverse(tree)
+
 
 def load_source_lines(meta, keyword, line):
     if meta['filename'] is None or not os.path.isfile(meta['filename']): return ""
