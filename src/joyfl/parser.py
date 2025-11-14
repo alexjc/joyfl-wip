@@ -123,18 +123,16 @@ def parse(source: str, start='start', filename=None):
 
             assert isinstance(children[0], lark.Token) and isinstance(children[-1], lark.Token)
             # LIST-implied stack items: [PARAM] single-item expected.
-            if children[0].type == 'LSQB' and children[-1].type == 'RSQB' and (inner := children[1]): 
+            if children[0].type == 'LSQB' and children[-1].type == 'RSQB' and (inner := children[1]):
                 # By grammar, inner is always a single PARAM.
                 assert isinstance(inner, lark.Token) and inner.type == 'PARAM'
-                items.append({'quote': [_param_entry(inner.value)], 'label': None, 'type': None, 'raw': None})
+                items.append({'quote': [_param_entry(inner.value)], 'label': None, 'type': 'list', 'raw': None})
                 continue
             # TUPLE-specified product data-type; {PARAM ...} multiple items likely.
             if children[0].type == 'LBRACE' and children[-1].type == 'RBRACE':
                 inner_items = [_param_entry(ch.value) for ch in children[1:-1]]
-                items.append({'quote': inner_items, 'label': None, 'type': None, 'raw': None})
+                items.append({'quote': inner_items, 'label': None, 'type': 'list', 'raw': None})
                 continue
-
-            # With the current grammar, we should never reach this point.
             raise NotImplementedError("Unexpected bracket pattern in stack_item.")
 
         return items
