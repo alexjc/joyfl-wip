@@ -34,10 +34,10 @@ def test_stack_type_and_accessors():
 
 
 def test_stack_memory_efficiency():
-    # Stack should be a compact 56-byte namedtuple
-    assert sys.getsizeof(J.nil) == 56
-    assert sys.getsizeof(J.to_stack([1])) == 56
-    assert sys.getsizeof(J.to_stack([1, 2, 3, 4, 5])) == 56
+    # Stack should be a compact 56-byte namedtuple, 64 byte in Py3.14!
+    assert sys.getsizeof(J.nil) <= 64
+    assert sys.getsizeof(J.to_stack([1])) <= 64
+    assert sys.getsizeof(J.to_stack([1, 2, 3, 4, 5])) <= 64
     
     # All stacks are the same size regardless of depth
     empty = J.nil
