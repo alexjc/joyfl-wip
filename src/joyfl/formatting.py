@@ -1,7 +1,6 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
 import re
-import sys
 
 from .types import stack_list, Stack, nil
 
@@ -32,6 +31,9 @@ def write_without_ansi(write_fn):
     ansi_re = re.compile(r'\033\[[0-9;]*m')
     return lambda text: write_fn(ansi_re.sub('', text))
 
+def _format_string(it):
+    return '"' + it.encode('unicode_escape').decode('ascii').replace('"', '\\"') + '"'
+
 def _format_item(it, width=None, indent=0, abbreviate: bool = False):
     if (is_stack := isinstance(it, stack_list)) or isinstance(it, list):
         if abbreviate and not is_stack:
@@ -50,7 +52,7 @@ def _format_item(it, width=None, indent=0, abbreviate: bool = False):
         result += '\n' + (' ' * indent) + rhs
         return result
     if isinstance(it, str):
-        return f'≪string:{len(it)}≫' if abbreviate else '"' + it.replace('"', '\\"') + '"'
+        return f'≪string:{len(it)}≫' if abbreviate else _format_string(it)
     if isinstance(it, bool): return str(it).lower()
     if isinstance(it, bytes): return str(it)[1:-1]
     return str(it)
