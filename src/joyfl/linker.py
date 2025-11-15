@@ -41,7 +41,7 @@ def link_body(tokens: list, meta: dict, lib: Library):
             if not (factory := lib.factories.get(name)):
                 raise JoyNameError(f"Unknown factory `{token}`.", joy_op=token, joy_meta=meta)
             output.append(factory())
-        elif (q := lib.quotations.get(token)) and q.visibility != "private":
+        elif (q := lib.get_quotation(token, meta=mt)) is not None:
             mt['body'] = q.meta
             if q.meta and 'signature' in q.meta:
                 mt['signature'] = q.meta['signature']
@@ -111,5 +111,4 @@ def load_joy_library(export_lib: Library, sections: dict, filename: str, context
     # Export MODULE definitions into the global library.
     _export(public_defs)
     _export(private_defs)
-
     return local_lib

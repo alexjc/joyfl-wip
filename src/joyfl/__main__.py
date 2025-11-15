@@ -17,7 +17,6 @@ from .parser import format_parse_error_context, print_source_lines, format_sourc
 from .formatting import write_without_ansi, format_item, show_stack
 
 from . import api
-from .loader import iter_joy_module_candidates
 
 
 @dataclass(frozen=True)
@@ -255,42 +254,17 @@ def run_module(ctx: click.Context, name: str) -> None:
     else:
         module_name, module_term = name, 'main'
 
-    def _load_module_from(src: Path) -> None:
-        """Load a Joy module file and expose its PUBLIC words for this run."""
-        existing = set(runner.runtime.library.quotations.keys())
-        source_text = src.read_text(encoding='utf-8')
-        runner._load_library(source_text, str(src), validate=ctx.obj['config'].validate)
-
-        # New public quotations introduced by this module load.
-        new_keys = runner.runtime.library.quotations.keys() - existing
-
-        # Expose module PUBLIC words both under `module_name.name` and as bare
-        # aliases (prelude-style) for this process, without clobbering existing
-        # names from stdlib or prior modules.
-        for qname in list(new_keys):
-            if not qname.startswith(f"{module_name}."):
-                continue
-
-            _, bare = qname.split(".", 1)
-
-            # Ensure dotted alias exists (already present from MODULE export,
-            # but keep semantics explicit).
-            runner.runtime.library.quotations.setdefault(qname, runner.runtime.library.quotations[qname])
-
-            # Add a bare alias only if it does not override an existing word.
-            if bare not in existing:
-                q = runner.runtime.library.quotations[qname]
-                runner.runtime.library.quotations[bare] = q
-
-    # Resolve module using the shared Joy module search logic (JOY_PATH first,
-    # then packaged `libs/` roots).
-    for src in iter_joy_module_candidates(module_name):
-        if src.exists():
-            _load_module_from(src)
-            break
-
+    # Execute `<module_name>.<module_term>`; runtime auto-loads Joy module on first dotted use.
+    lib = runner.runtime.library
     program = f"{module_name}.{module_term} .\n"
     runner.execute_items((ExecutionItem(program, f'<MOD:{module_name}.{module_term}>'),))
+
+    # Expose module PUBLIC words as dotted and bare aliases without overriding existing names.
+    for qname, q in list(lib.quotations.items()):
+        if not qname.startswith(f"{module_name}."):
+            continue
+        if (bare := qname.split(".", 1)[1]) not in lib.quotations:
+            lib.quotations[bare] = q
     ctx.exit(runner.finalize())
 
 

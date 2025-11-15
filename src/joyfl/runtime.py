@@ -10,6 +10,7 @@ from .library import Library
 from .builtins import load_builtins_library
 from .formatting import list_to_stack as _list_to_stack, stack_to_list as _stack_to_list
 from .interpreter import interpret, can_execute, interpret_step
+from .loader import iter_joy_module_candidates, resolve_module_op
 
 
 class Runtime:
@@ -17,6 +18,23 @@ class Runtime:
 
     def __init__(self, library: Library | None = None):
         self.library = library or load_builtins_library()
+
+        def _joy_loader(lib: Library, ns: str, meta: dict | None) -> None:
+            context_lib: Library = lib
+            for src in iter_joy_module_candidates(ns):
+                if not src.exists(): continue
+                source_text = src.read_text(encoding="utf-8")
+                for typ, data in parse(source_text, filename=str(src)):
+                    if typ == "library":
+                        context_lib = load_joy_library(lib, data, str(src), context_lib)
+                break
+
+        def _py_loader(lib: Library, ns: str, op: str, meta: dict | None) -> None:
+            py_fn = resolve_module_op(ns, op, meta=meta)
+            lib.add_function(f"{ns}.{op}", py_fn)
+
+        self.library.joy_module_loader = _joy_loader
+        self.library.py_module_loader = _py_loader
 
     # Assembly ────────────────────────────────────────────────────────────────────────────────
     def operation(self, name: str) -> Operation:

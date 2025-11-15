@@ -10,7 +10,6 @@ from .types import Stack
 from .errors import JoyNameError, JoyModuleError, JoyTypeMissing, JoyTypeError
 
 
-
 _LIB_MODULES: dict[str, object] = {}
 
 
@@ -23,18 +22,9 @@ def get_python_name(joy_name):
 
 
 def iter_joy_module_candidates(module_name: str):
-    """Yield candidate .joy module paths for the given Joy module name.
-
-    Search order:
-      1. JOY_PATH entries, each treated as a module root (plain `{name}.joy`)
-      2. Packaged `libs/` directories relative to this package and its parents
-         (i.e. `libs/{name}.joy`).
-    """
-    # JOY_PATH roots first.
+    """Resolution order: JOY_PATHS first, then 'libs' paths relative to distribution."""
     for root in _resolve_joy_paths():
         yield root / f"{module_name}.joy"
-
-    # Packaged libs/ search next.
     base = Path(__file__).resolve().parent
     for d in (base, *base.parents[:2]):
         yield d / 'libs' / f"{module_name}.joy"
@@ -48,7 +38,7 @@ def load_library_module(ns: str, meta: dict):
     candidates = [(str(d / 'libs' / f'_{ns}.py'), f"joyfl.libs._{ns}") for d in roots]
 
     # Also search JOY_PATH entries (plain-only {ns}.py).
-    for p in _resolve_joy_paths(): candidates.append((str(p / f'{ns}.py'), f"joyfl.ext.{ns}"))
+    candidates += [(str(p / f'{ns}.py'), f"joyfl.ext.{ns}") for p in _resolve_joy_paths()]
 
     import importlib.util as importer
     for mod_path, mod_name in candidates:

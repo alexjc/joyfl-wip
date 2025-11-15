@@ -6,17 +6,20 @@ from dataclasses import dataclass, field, replace
 
 from .types import Stack, Quotation
 from .errors import JoyNameError, JoyTypeError
-from .loader import get_stack_effects, resolve_module_op
+from .loader import get_stack_effects
 
 
 @dataclass
 class Library:
     functions: dict[str, Callable[..., Any]]
     combinators: dict[str, Callable[..., Any]]
-    quotations: dict[str, Quotation]  # name -> Quotation
+    quotations: dict[str, Quotation]
     constants: dict[str, Any]
     factories: dict[str, Callable[[], Any]]
     aliases: dict[str, str] = field(default_factory=dict)
+    joy_module_loader: Callable | None = None
+    py_module_loader: Callable | None = None
+    loaded_modules: set[str] = field(default_factory=set)
 
     # Registration helpers
     def add_function(self, name: str, fn: Callable[..., Any]) -> None:
@@ -31,21 +34,30 @@ class Library:
         for _, fn in list(self.functions.items()):
             assert hasattr(fn, '__joy_meta__')
 
+    def get_quotation(self, name: str, *, meta: dict | None = None) -> Quotation | None:
+        resolved_name = self.aliases.get(name, name)
+        if '.' in resolved_name and self.joy_module_loader is not None:
+            if (ns := resolved_name.split('.', 1)[0]) not in self.loaded_modules:
+                self.joy_module_loader(self, ns, meta)                
+                if (prefix := ns + ".") and any(k.startswith(prefix) for k in self.quotations):
+                    self.loaded_modules.add(ns)
+        if (q := self.quotations.get(resolved_name)) and q.visibility != "private":
+            return q
+        return None
+
     def get_function(self, name: str, *, meta: dict | None = None) -> Callable[..., Any]:
         resolved_name = self.aliases.get(name, name)
         if (fn := self.functions.get(resolved_name)) is not None:
             return fn
-        if '.' in resolved_name:
+        if '.' in resolved_name and self.py_module_loader is not None:
             ns, op = resolved_name.split('.', 1)
-            py_fn = resolve_module_op(ns, op, meta=meta)
-            try:
-                fn, stack_meta = _make_wrapper(py_fn, resolved_name)
-            except JoyTypeError as exc:
-                exc.joy_token, exc.joy_meta = resolved_name, meta
-                raise
-            fn.__joy_meta__ = stack_meta
-            self.functions[resolved_name] = fn
-            return fn
+            if ns not in self.loaded_modules:
+                self.py_module_loader(self, ns, op, meta)
+                prefix = ns + "."
+                if any(k.startswith(prefix) for k in self.functions):
+                    self.loaded_modules.add(ns)
+            if (fn := self.functions.get(resolved_name)) is not None:
+                return fn
         raise JoyNameError(f"Operation `{name}` not found in library.", joy_token=name, joy_meta=meta)
 
     # Views / overlays
