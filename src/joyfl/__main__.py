@@ -3,7 +3,6 @@
 # joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
 #
 
-import os
 import sys
 import time
 import traceback
@@ -18,6 +17,7 @@ from .parser import format_parse_error_context, print_source_lines, format_sourc
 from .formatting import write_without_ansi, format_item, show_stack
 
 from . import api
+from .loader import iter_joy_module_candidates
 
 
 @dataclass(frozen=True)
@@ -282,24 +282,10 @@ def run_module(ctx: click.Context, name: str) -> None:
                 q = runner.runtime.library.quotations[qname]
                 runner.runtime.library.quotations[bare] = q
 
-    # 1) Search JOY_PATH entries for `<module_name>.joy` first, treating each
-    # directory as a root for standalone Joy modules.
-    joy_paths = [p for p in os.environ.get("JOY_PATH", "").split(os.pathsep) if p]
-    joy_paths = [Path(os.path.expanduser(os.path.expandvars(p))) for p in joy_paths]
-
-    for root in joy_paths:
-        src = root / f"{module_name}.joy"
-        if not src.exists():
-            continue
-        _load_module_from(src)
-        break
-    else:
-        # 2) Fallback to packaged `libs/` search relative to this package.
-        base = Path(__file__).resolve().parent
-        for d in (base, *base.parents[:2]):
-            src = d / 'libs' / f"{module_name}.joy"
-            if not src.exists():
-                continue
+    # Resolve module using the shared Joy module search logic (JOY_PATH first,
+    # then packaged `libs/` roots).
+    for src in iter_joy_module_candidates(module_name):
+        if src.exists():
             _load_module_from(src)
             break
 
