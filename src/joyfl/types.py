@@ -1,6 +1,8 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
+from typing import Literal
 from collections import namedtuple
+from dataclasses import dataclass
 
 class stack_list(list): pass
 
@@ -66,3 +68,14 @@ class Operation:
 
     def __repr__(self):
         return f"{self.name}"
+
+
+Visibility = Literal["public", "private", "local"]
+
+
+@dataclass
+class Quotation:
+    program: list          # list[Operation]
+    meta: dict             # filename, start/finish, signature, etc.
+    visibility: Visibility # "public", "private", or temporary "local"
+    module: str | None     # MODULE name, or None for global/legacy

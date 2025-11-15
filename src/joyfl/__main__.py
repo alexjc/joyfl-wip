@@ -254,25 +254,17 @@ def run_module(ctx: click.Context, name: str) -> None:
     else:
         module_name, module_term = name, 'main'
 
-    # Load Joy library module from local libs/ directories if present, then execute <module>.main
-    base = Path(__file__).resolve().parent
-    for d in (base, *base.parents[:2]):
-        src = d / 'libs' / f"{module_name}.joy"
-        if not src.exists():
-            continue
-        existing = set(runner.runtime.library.quotations.keys())
-        source_text = src.read_text(encoding='utf-8')
-        runner._load_library(source_text, str(src), validate=ctx.obj['config'].validate)
-        # Namespace new public quotations for dotted access (module.term)
-        for qname in runner.runtime.library.quotations.keys() - existing:
-            if '.' in qname:
-                continue
-            prog, qmeta = runner.runtime.library.quotations[qname]
-            runner.runtime.library.quotations.setdefault(f"{module_name}.{qname}", (prog, qmeta))
-        break
-
+    # Execute `<module_name>.<module_term>`; runtime auto-loads Joy module on first dotted use.
+    lib = runner.runtime.library
     program = f"{module_name}.{module_term} .\n"
     runner.execute_items((ExecutionItem(program, f'<MOD:{module_name}.{module_term}>'),))
+
+    # Expose module PUBLIC words as dotted and bare aliases without overriding existing names.
+    for qname, q in list(lib.quotations.items()):
+        if not qname.startswith(f"{module_name}."):
+            continue
+        if (bare := qname.split(".", 1)[1]) not in lib.quotations:
+            lib.quotations[bare] = q
     ctx.exit(runner.finalize())
 
 

@@ -5,11 +5,12 @@ from collections import deque
 
 from .types import Operation, Stack, nil
 from .parser import parse
-from .linker import link_body
+from .linker import link_body, load_joy_library
 from .library import Library
 from .builtins import load_builtins_library
 from .formatting import list_to_stack as _list_to_stack, stack_to_list as _stack_to_list
 from .interpreter import interpret, can_execute, interpret_step
+from .loader import iter_joy_module_candidates, resolve_module_op
 
 
 class Runtime:
@@ -17,6 +18,23 @@ class Runtime:
 
     def __init__(self, library: Library | None = None):
         self.library = library or load_builtins_library()
+
+        def _joy_loader(lib: Library, ns: str, meta: dict | None) -> None:
+            context_lib: Library = lib
+            for src in iter_joy_module_candidates(ns):
+                if not src.exists(): continue
+                source_text = src.read_text(encoding="utf-8")
+                for typ, data in parse(source_text, filename=str(src)):
+                    if typ == "library":
+                        context_lib = load_joy_library(lib, data, str(src), context_lib)
+                break
+
+        def _py_loader(lib: Library, ns: str, op: str, meta: dict | None) -> None:
+            py_fn = resolve_module_op(ns, op, meta=meta)
+            lib.add_function(f"{ns}.{op}", py_fn)
+
+        self.library.joy_module_loader = _joy_loader
+        self.library.py_module_loader = _py_loader
 
     # Assembly ────────────────────────────────────────────────────────────────────────────────
     def operation(self, name: str) -> Operation:
@@ -55,29 +73,15 @@ class Runtime:
     def _execute(self, source: str, filename: str | None, verbosity: int,
                  validate: bool, stats: dict | None):
         out = None
+        context_lib: Library = self.library
         for typ, data in parse(source, filename=filename):
             if typ == 'term':
-                prg, _ = link_body(data, meta={'filename': filename, 'lines': (2**32, -1)}, lib=self.library)
+                prg, _ = link_body(data, meta={'filename': filename, 'lines': (2**32, -1)}, lib=context_lib)
                 out = interpret(prg, lib=self.library, verbosity=verbosity, validate=validate, stats=stats)
             elif typ == 'library':
-                self._populate_definitions(data['public'])
+                context_lib = load_joy_library(self.library, data, filename, context_lib)
                 out = nil
         return out
-
-    def _populate_definitions(self, public_defs: list):
-        def _fill_recursive_calls(n):
-            if isinstance(n, list): return [_fill_recursive_calls(t) for t in n]
-            if isinstance(n, Operation) and n.ptr is None: n.ptr = prg
-            return n
-
-        for (_, key, mt), tokens in public_defs:
-            self.library.quotations[key] = (None, {})  # placeholder for forward/self references
-            try:
-                prg, meta = link_body(tokens, meta=mt, lib=self.library)
-                self.library.quotations[key] = (_fill_recursive_calls(prg), meta)
-            except:
-                del self.library.quotations[key]
-                raise
 
     # Registration ────────────────────────────────────────────────────────────────────────────
     def register_operation(self, name: str, func: Callable) -> None:
