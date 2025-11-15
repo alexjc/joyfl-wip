@@ -5,7 +5,7 @@ from collections import deque
 
 from .types import Operation, Stack, nil
 from .parser import parse
-from .linker import link_body
+from .linker import link_body, load_joy_library
 from .library import Library
 from .builtins import load_builtins_library
 from .formatting import list_to_stack as _list_to_stack, stack_to_list as _stack_to_list
@@ -55,29 +55,15 @@ class Runtime:
     def _execute(self, source: str, filename: str | None, verbosity: int,
                  validate: bool, stats: dict | None):
         out = None
+        context_lib: Library = self.library
         for typ, data in parse(source, filename=filename):
             if typ == 'term':
-                prg, _ = link_body(data, meta={'filename': filename, 'lines': (2**32, -1)}, lib=self.library)
+                prg, _ = link_body(data, meta={'filename': filename, 'lines': (2**32, -1)}, lib=context_lib)
                 out = interpret(prg, lib=self.library, verbosity=verbosity, validate=validate, stats=stats)
             elif typ == 'library':
-                self._populate_definitions(data['public'])
+                context_lib = load_joy_library(self.library, data, filename, context_lib)
                 out = nil
         return out
-
-    def _populate_definitions(self, public_defs: list):
-        def _fill_recursive_calls(n):
-            if isinstance(n, list): return [_fill_recursive_calls(t) for t in n]
-            if isinstance(n, Operation) and n.ptr is None: n.ptr = prg
-            return n
-
-        for (_, key, mt), tokens in public_defs:
-            self.library.quotations[key] = (None, {})  # placeholder for forward/self references
-            try:
-                prg, meta = link_body(tokens, meta=mt, lib=self.library)
-                self.library.quotations[key] = (_fill_recursive_calls(prg), meta)
-            except:
-                del self.library.quotations[key]
-                raise
 
     # Registration ────────────────────────────────────────────────────────────────────────────
     def register_operation(self, name: str, func: Callable) -> None:

@@ -3,6 +3,7 @@
 # joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
 #
 
+import os
 import sys
 import time
 import traceback
@@ -254,22 +255,53 @@ def run_module(ctx: click.Context, name: str) -> None:
     else:
         module_name, module_term = name, 'main'
 
-    # Load Joy library module from local libs/ directories if present, then execute <module>.main
-    base = Path(__file__).resolve().parent
-    for d in (base, *base.parents[:2]):
-        src = d / 'libs' / f"{module_name}.joy"
-        if not src.exists():
-            continue
+    def _load_module_from(src: Path) -> None:
+        """Load a Joy module file and expose its PUBLIC words for this run."""
         existing = set(runner.runtime.library.quotations.keys())
         source_text = src.read_text(encoding='utf-8')
         runner._load_library(source_text, str(src), validate=ctx.obj['config'].validate)
-        # Namespace new public quotations for dotted access (module.term)
-        for qname in runner.runtime.library.quotations.keys() - existing:
-            if '.' in qname:
+
+        # New public quotations introduced by this module load.
+        new_keys = runner.runtime.library.quotations.keys() - existing
+
+        # Expose module PUBLIC words both under `module_name.name` and as bare
+        # aliases (prelude-style) for this process, without clobbering existing
+        # names from stdlib or prior modules.
+        for qname in list(new_keys):
+            if not qname.startswith(f"{module_name}."):
                 continue
-            prog, qmeta = runner.runtime.library.quotations[qname]
-            runner.runtime.library.quotations.setdefault(f"{module_name}.{qname}", (prog, qmeta))
+
+            _, bare = qname.split(".", 1)
+
+            # Ensure dotted alias exists (already present from MODULE export,
+            # but keep semantics explicit).
+            runner.runtime.library.quotations.setdefault(qname, runner.runtime.library.quotations[qname])
+
+            # Add a bare alias only if it does not override an existing word.
+            if bare not in existing:
+                q = runner.runtime.library.quotations[qname]
+                runner.runtime.library.quotations[bare] = q
+
+    # 1) Search JOY_PATH entries for `<module_name>.joy` first, treating each
+    # directory as a root for standalone Joy modules.
+    joy_paths = [p for p in os.environ.get("JOY_PATH", "").split(os.pathsep) if p]
+    joy_paths = [Path(os.path.expanduser(os.path.expandvars(p))) for p in joy_paths]
+
+    for root in joy_paths:
+        src = root / f"{module_name}.joy"
+        if not src.exists():
+            continue
+        _load_module_from(src)
         break
+    else:
+        # 2) Fallback to packaged `libs/` search relative to this package.
+        base = Path(__file__).resolve().parent
+        for d in (base, *base.parents[:2]):
+            src = d / 'libs' / f"{module_name}.joy"
+            if not src.exists():
+                continue
+            _load_module_from(src)
+            break
 
     program = f"{module_name}.{module_term} .\n"
     runner.execute_items((ExecutionItem(program, f'<MOD:{module_name}.{module_term}>'),))

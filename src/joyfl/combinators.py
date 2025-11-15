@@ -68,5 +68,5 @@ def comb_exec_b(_, queue, tail: Stack, head: list|tuple, lib):
         is_ok, result = True, stack_to_list(result_stack)
     except JoyError as exc:
         result = exc
-
+    
     return tail.pushed(result, is_ok)

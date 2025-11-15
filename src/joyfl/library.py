@@ -1,9 +1,9 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 
-from .types import Stack
+from .types import Stack, Quotation
 from .errors import JoyNameError, JoyTypeError
 from .loader import get_stack_effects, resolve_module_op
 
@@ -12,7 +12,7 @@ from .loader import get_stack_effects, resolve_module_op
 class Library:
     functions: dict[str, Callable[..., Any]]
     combinators: dict[str, Callable[..., Any]]
-    quotations: dict[str, tuple[list, dict]]  # name -> (program, meta)
+    quotations: dict[str, Quotation]  # name -> Quotation
     constants: dict[str, Any]
     factories: dict[str, Callable[[], Any]]
     aliases: dict[str, str] = field(default_factory=dict)
@@ -24,7 +24,7 @@ class Library:
         self.functions[name] = fn
 
     def add_quotation(self, name: str, program: list, meta: dict) -> None:
-        self.quotations[name] = (program, meta)
+        self.quotations[name] = Quotation(program=program, meta=meta, visibility="public", module=None)
 
     def ensure_consistent(self) -> None:
         for _, fn in list(self.functions.items()):
@@ -46,6 +46,22 @@ class Library:
             self.functions[resolved_name] = fn
             return fn
         raise JoyNameError(f"Operation `{name}` not found in library.", joy_token=name, joy_meta=meta)
+
+    # Views / overlays
+    def with_overlay(self) -> "Library":
+        """Create a Library view that shares all structure with this one,
+        except for an overlaid `quotations` mapping.
+
+        Writes go to a fresh local dict; reads fall back to this library's
+        quotations.
+        """
+        from collections import ChainMap
+
+        overlay_quotations = ChainMap({}, self.quotations)
+        return replace(
+            self,
+            quotations=overlay_quotations,
+        )
 
 
 def _make_wrapper(fn: Callable[..., Any], name: str) -> Callable[..., Any]:

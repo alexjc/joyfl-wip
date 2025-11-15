@@ -190,8 +190,11 @@ def parse(source: str, start='start', filename=None):
             sections = {"module": None, "private": [], "public": []}
             for ch in [c for c in it.children[:-1] if c not in ('END', '.')]:
                 key = ch.data.split('_', maxsplit=1)[0]
-                if key != 'module':
-                    sections[key] = [parsed for definition_node in ch.children[0].children if (parsed := _extract_definition(definition_node))]
+                if key == 'module':
+                    name_token = next((t for t in ch.children if isinstance(t, lark.Token) and t.type == 'NAME'), None)
+                    sections['module'] = name_token.value if name_token is not None else None
+                else:
+                    sections[key] = [parsed for def_node in ch.children[0].children if (parsed := _extract_definition(def_node))]
             yield 'library', sections
         elif it.data == 'term':
             yield 'term', list(_flatten(it))
@@ -222,7 +225,12 @@ def print_source_lines(op, lib, file=sys.stderr):
         if isinstance(prg, list): return any(_contained_in(k, p) for p in prg)
         return id(op) == id(prg)
 
-    src = [(meta, k) for k, (prog, meta) in lib.items() if _contained_in(k, prog)]
+    # `lib` is a mapping from name -> Quotation in the new model.
+    src = [
+        (q.meta, k)
+        for k, q in lib.items()
+        if _contained_in(k, q.program)
+    ]
     for meta, ctx in src + [(op.meta, op.name)]:
         print(format_source_lines(meta, ctx), end='\n', file=file)
         break
