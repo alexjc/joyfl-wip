@@ -163,12 +163,7 @@ def test_cli_run_mod_uses_local_library_helpers(tmp_path: Path):
     # Create a self-contained Joy module in a temporary directory and expose
     # it via JOY_PATH. The module's PUBLIC `main` depends on a PRIVATE/helper
     # word defined in the same file, without requiring any scoped prefix.
-    module_source = (
-        "MODULE mymod "
-        "PRIVATE helper == 41 ; "
-        "PUBLIC main == helper 1 + put! ; "
-        "END.\n"
-    )
+    module_source = """MODULE mymod PRIVATE helper == 41 ; PUBLIC main == helper 1 + put! ; END.\n"""
 
     mod_dir = tmp_path
     mod_path = mod_dir / "mymod.joy"

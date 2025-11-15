@@ -225,12 +225,7 @@ def print_source_lines(op, lib, file=sys.stderr):
         if isinstance(prg, list): return any(_contained_in(k, p) for p in prg)
         return id(op) == id(prg)
 
-    # `lib` is a mapping from name -> Quotation in the new model.
-    src = [
-        (q.meta, k)
-        for k, q in lib.items()
-        if _contained_in(k, q.program)
-    ]
+    src = [(q.meta, k) for k, q in lib.items() if _contained_in(k, q.program)]
     for meta, ctx in src + [(op.meta, op.name)]:
         print(format_source_lines(meta, ctx), end='\n', file=file)
         break

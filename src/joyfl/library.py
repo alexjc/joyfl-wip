@@ -1,7 +1,8 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
-from dataclasses import dataclass, field, replace
 from typing import Any, Callable
+from collections import ChainMap
+from dataclasses import dataclass, field, replace
 
 from .types import Stack, Quotation
 from .errors import JoyNameError, JoyTypeError
@@ -49,19 +50,9 @@ class Library:
 
     # Views / overlays
     def with_overlay(self) -> "Library":
-        """Create a Library view that shares all structure with this one,
-        except for an overlaid `quotations` mapping.
-
-        Writes go to a fresh local dict; reads fall back to this library's
-        quotations.
-        """
-        from collections import ChainMap
-
+        """Create new view sharing all structure with this one, except for an overlaid `quotations` mapping."""
         overlay_quotations = ChainMap({}, self.quotations)
-        return replace(
-            self,
-            quotations=overlay_quotations,
-        )
+        return replace(self, quotations=overlay_quotations)
 
 
 def _make_wrapper(fn: Callable[..., Any], name: str) -> Callable[..., Any]:

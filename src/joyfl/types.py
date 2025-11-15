@@ -1,8 +1,8 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
+from typing import Literal
 from collections import namedtuple
 from dataclasses import dataclass
-from typing import Literal
 
 class stack_list(list): pass
 
