@@ -157,3 +157,22 @@ def test_cli_validate_stack_error_sets_retcode_and_shows_error(tmp_path: Path):
     out = result.stdout
     assert "VALIDATION ERROR." in out
     assert "needs at least 1 item on the stack" in out
+
+
+def test_cli_run_mod_uses_local_library_helpers(tmp_path: Path):
+    # Create a self-contained Joy module in a temporary directory and expose
+    # it via JOY_PATH. The module's PUBLIC `main` depends on a PRIVATE/helper
+    # word defined in the same file, without requiring any scoped prefix.
+    module_source = """MODULE mymod PRIVATE helper == 41 ; PUBLIC main == helper 1 + put! ; END.\n"""
+
+    mod_dir = tmp_path
+    mod_path = mod_dir / "mymod.joy"
+    mod_path.write_text(module_source, encoding="utf-8")
+
+    env = {"JOY_PATH": str(mod_dir)}
+    result = run_cli("-m", "mymod", env=env)
+
+    assert result.returncode == 0
+    # `helper 1 + put!` must have executed successfully, printing `42`.
+    lines = _strip_output_lines(result.stdout)
+    assert "42" in lines[-1]

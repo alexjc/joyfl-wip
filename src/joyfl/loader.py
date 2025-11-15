@@ -6,14 +6,28 @@ from pathlib import Path
 from types import UnionType
 from typing import Any, ForwardRef, TypeVar, Callable, get_origin, get_args
 
-from .errors import JoyNameError, JoyModuleError, JoyTypeMissing, JoyTypeError
 from .types import Stack
+from .errors import JoyNameError, JoyModuleError, JoyTypeMissing, JoyTypeError
 
 
-_LIB_MODULES = {}
+_LIB_MODULES: dict[str, object] = {}
+
+
+def _resolve_joy_paths() -> list[Path]:
+    parts = [p for p in os.environ.get("JOY_PATH", "").split(os.pathsep) if p]
+    return [Path(os.path.expanduser(os.path.expandvars(p))) for p in parts]
 
 def get_python_name(joy_name):
     return 'op_'+joy_name.replace('-', '_').replace('!', '_b').replace('?', '_q')
+
+
+def iter_joy_module_candidates(module_name: str):
+    """Resolution order: JOY_PATHS first, then 'libs' paths relative to distribution."""
+    for root in _resolve_joy_paths():
+        yield root / f"{module_name}.joy"
+    base = Path(__file__).resolve().parent
+    for d in (base, *base.parents[:2]):
+        yield d / 'libs' / f"{module_name}.joy"
 
 
 def load_library_module(ns: str, meta: dict):
@@ -24,9 +38,7 @@ def load_library_module(ns: str, meta: dict):
     candidates = [(str(d / 'libs' / f'_{ns}.py'), f"joyfl.libs._{ns}") for d in roots]
 
     # Also search JOY_PATH entries (plain-only {ns}.py).
-    joy_paths = [p for p in os.environ.get('JOY_PATH', '').split(os.pathsep) if p]
-    joy_paths = [os.path.expanduser(os.path.expandvars(p)) for p in joy_paths]
-    candidates += [(os.path.join(p, f'{ns}.py'), f"joyfl.ext.{ns}") for p in joy_paths]
+    candidates += [(str(p / f'{ns}.py'), f"joyfl.ext.{ns}") for p in _resolve_joy_paths()]
 
     import importlib.util as importer
     for mod_path, mod_name in candidates:

@@ -3,9 +3,7 @@
 # joyfl — A minimal but elegant dialect of Joy, functional / concatenative stack language.
 #
 
-MODULE stdlib
-
-PUBLIC
+DEFINE
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # Basic Operations
@@ -247,7 +245,8 @@ PUBLIC
     *   EXAMPLE:    [1 2 3] [dup *] map [1 4 9] equal? .
     *   NOTE:       Preserves list order, quotation executed once per element with results accumulated.
     *)
-    map             ==  [] rollup                                       # make a new ACCUMULATOR, and order it before VALUES
+    map             :  ([values] [pred] -- [result])
+                    ==  [] rollup                                       # make a new ACCUMULATOR, and order it before VALUES
                         [dup first] swoncat                             # assemble a dynamic list of instructions for each step
                         [swap [swappend] :dip rest] concat              # -> [dup first PREDICATES swap [swappend] dip rest]
                         [null?] swap [pop] swap                         # reorder parameters based on tailrec's specification

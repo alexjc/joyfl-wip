@@ -1,12 +1,14 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
-import pytest
+from pathlib import Path
 
-from joyfl.errors import JoyTypeMissing
+from joyfl.errors import JoyNameError, JoyTypeMissing
 from joyfl.runtime import Runtime
 from joyfl.types import Stack
 from joyfl.linker import link_body
 from joyfl.parser import parse
+
+import pytest
 
 
 def test_runtime_can_step_with_generic_alias_param():
@@ -86,21 +88,6 @@ def test_runtime_apply():
     stack = rt.apply('dup', stack)
     stack = rt.apply(rt.operation('mul'), stack)
     assert rt.from_stack(stack) == [25]
-
-
-def test_runtime_library_persistence_across_runs():
-    rt = Runtime()
-
-    src_def = """\
-MODULE test
-
-PUBLIC
-    five == 5 ;
-END.
-"""
-    rt.load(src_def, filename='<LIB>')
-    stack = rt.run("five 3 + .", filename='<USE>')
-    assert rt.from_stack(stack) == [8]
 
 
 def test_runtime_register_operation_without_annotations():

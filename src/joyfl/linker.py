@@ -3,8 +3,8 @@
 import ast
 from fractions import Fraction
 
-from .types import Operation
-from .errors import JoyNameError
+from .types import Operation, Quotation
+from .errors import JoyError, JoyNameError
 from .library import Library
 
 
@@ -41,12 +41,11 @@ def link_body(tokens: list, meta: dict, lib: Library):
             if not (factory := lib.factories.get(name)):
                 raise JoyNameError(f"Unknown factory `{token}`.", joy_op=token, joy_meta=meta)
             output.append(factory())
-        elif token in lib.quotations:
-            prg, stored_meta = lib.quotations[token]
-            mt['body'] = stored_meta
-            if stored_meta and 'signature' in stored_meta:
-                mt['signature'] = stored_meta['signature']
-            output.append(Operation(Operation.EXECUTE, prg, token, mt))
+        elif (q := lib.get_quotation(token, meta=mt)) is not None:
+            mt['body'] = q.meta
+            if q.meta and 'signature' in q.meta:
+                mt['signature'] = q.meta['signature']
+            output.append(Operation(Operation.EXECUTE, q.program, token, mt))
         elif token.startswith('"') and token.endswith('"'):
             output.append(ast.literal_eval(token))
         elif token.startswith("'"):
@@ -64,3 +63,52 @@ def link_body(tokens: list, meta: dict, lib: Library):
 
     assert len(stack) == 0
     return output, meta
+
+
+def _populate_joy_definitions(definitions: list, lib: Library, visibility: str, module: str):
+    def _fill_recursive_calls(n):
+        if isinstance(n, list): return [_fill_recursive_calls(t) for t in n]
+        if isinstance(n, Operation) and n.ptr is None: n.ptr = prg
+        return n
+
+    for (_, key, mt), tokens in definitions:
+        # Placeholder for forward/self-references; `program` is None until the body has been fully linked.
+        quot = Quotation(program=None, meta={}, visibility=visibility, module=module)
+        lib.quotations[key] = quot
+        try:
+            prg, meta = link_body(tokens, meta=mt, lib=lib)
+            quot.program, quot.meta = _fill_recursive_calls(prg), meta
+        except JoyError:
+            del lib.quotations[key]
+            raise
+
+
+def load_joy_library(export_lib: Library, sections: dict, filename: str, context_lib: Library) -> Library:
+    """Load PRIVATE and PUBLIC definitions, linked against context and exported to another library."""
+    private_defs = sections.get("private") or []
+    public_defs = sections.get("public") or []
+    module_name = sections.get("module")
+    # Libraries without a module name specified are considered global.
+    export_scope = f"{module_name}." if module_name else ""
+    # Overlay for definitions: writes go to the local dict, reads fall back to context.
+    local_lib = context_lib.with_overlay()
+
+    # Link PRIVATE first so PUBLIC can depend on them. Mark them first as "local" so they can be found.
+    _populate_joy_definitions(private_defs, lib=local_lib, visibility="local", module=module_name)
+    _populate_joy_definitions(public_defs, lib=local_lib, visibility="public", module=module_name)
+
+    def _export(defs):
+        for (typ, name, _mt), _tokens in defs:
+            if name not in local_lib.quotations: continue
+            quot = local_lib.quotations[name]
+            # All quotations are exported so they can be printed & debugged, but marked "private" if necessary.
+            export_lib.quotations[export_scope + name] = Quotation(
+                program=quot.program, meta=quot.meta,
+                visibility="private" if quot.visibility == "local" else "public",
+                module=quot.module,
+            )
+
+    # Export MODULE definitions into the global library.
+    _export(public_defs)
+    _export(private_defs)
+    return local_lib
