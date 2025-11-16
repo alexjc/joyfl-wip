@@ -8,7 +8,7 @@ class JoyError(Exception):
         """Base class for all Joy-raised errors."""
         super().__init__(message)
         self.joy_op: object = joy_op
-        self.joy_token: str = joy_token
+        self.joy_token: str = joy_token or (joy_op.name if joy_op else None)
         self.joy_meta: dict = joy_meta
 
 class JoyParseError(JoyError):
@@ -41,6 +41,10 @@ class JoyTypeMissing(JoyError, TypeError):
 
 class JoyTypeError(JoyError, TypeError):
     """Loading-time problems from the type system, usually from Python-side."""
+    pass
+
+class JoyTypeDuplicate(JoyTypeError):
+    """Duplicate or conflicting type definitions discovered while loading."""
     pass
 
 

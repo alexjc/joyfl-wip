@@ -205,6 +205,56 @@ def parse(source: str, start='start', filename=None):
             head = (head[0], head[1], meta)
         return head, body
 
+    def _as_type_definition_node(node: lark.Tree | None) -> lark.Tree | None:
+        """Return the inner `type_definition` node if present, or None otherwise."""
+        if not isinstance(node, lark.Tree): return None
+        if node.data == 'type_definition': return node
+
+        if node.data == 'definition':
+            if len(node.children) != 1 or not isinstance(node.children[0], lark.Tree):
+                return None
+            return inner if (inner := node.children[0]) and inner.data == 'type_definition' else None
+        return None
+
+    def _extract_type_definition(node):
+        """Extract minimal metadata for TYPEDEF declarations (product and sum types)."""
+        if (def_node := _as_type_definition_node(node)) is None: return None
+
+        children = list(def_node.children)
+        name_token = next((ch for ch in children if isinstance(ch, lark.Token) and ch.type == 'TYPE_NAME'), None)
+        body_node = next((ch for ch in children if isinstance(ch, lark.Tree) and ch.data in ('product_type', 'sum_type')), None)
+        if name_token is None or body_node is None:
+            return None
+
+        typename = name_token.value
+        if body_node.data == 'product_type':
+            fields = []
+            for ch in body_node.children:
+                # Bare PARAMs become struct fields.
+                if isinstance(ch, lark.Token) and ch.type == 'PARAM':
+                    fields.append(_param_entry(ch.value))
+                    continue
+                # Stack-effect items become fields expecting a quotation; the effect metadata is attached.
+                if isinstance(ch, lark.Tree) and ch.data == 'stack_effect':
+                    effect = _stack_effect(ch)
+                    fields.append({'label': None, 'type': 'list', 'quote': effect, 'raw': None})
+                    continue
+            return typename, {'kind': 'product', 'fields': fields}
+
+        if body_node.data == 'sum_type':
+            constructors = []
+            for ctor in (c for c in body_node.children if isinstance(c, lark.Tree) and c.data == 'constructor'):
+                ctor_children = list(ctor.children)
+                ctor_name = next((t for t in ctor_children if isinstance(t, lark.Token) and t.type == 'TYPE_NAME'), None)
+                params = [t for t in ctor_children if isinstance(t, lark.Token) and t.type == 'PARAM']
+                constructors.append({
+                    'name': ctor_name.value if ctor_name is not None else None,
+                    'params': [_param_entry(p.value) for p in params],
+                })
+            return typename, {'kind': 'sum', 'constructors': constructors}
+
+        raise NotImplementedError(f"Unhandled type_definition form for `{typename}`.")
+
     def _traverse(it):
         if isinstance(it, lark.Token):
             if it.type not in ('DOT', 'END'):
@@ -213,14 +263,20 @@ def parse(source: str, start='start', filename=None):
         assert isinstance(it, lark.Tree)
 
         if it.data == 'library':
-            sections = {"module": None, "private": [], "public": []}
+            sections = {"module": None, "private": [], "public": [], "types": []}
             for ch in [c for c in it.children[:-1] if c not in ('END', '.')]:
                 key = ch.data.split('_', maxsplit=1)[0]
                 if key == 'module':
                     name_token = next((t for t in ch.children if isinstance(t, lark.Token) and t.type == 'NAME'), None)
                     sections['module'] = name_token.value if name_token is not None else None
                 else:
-                    sections[key] = [parsed for def_node in ch.children[0].children if (parsed := _extract_definition_body(def_node))]
+                    term_defs = []
+                    for def_node in ch.children[0].children:
+                        if (parsed := _extract_definition_body(def_node)):
+                            term_defs.append(parsed)
+                        if (type_parsed := _extract_type_definition(def_node)):
+                            sections['types'].append((key, *type_parsed))
+                    sections[key] = term_defs
             yield 'library', sections
         elif it.data == 'term':
             yield 'term', list(_flatten(it))

@@ -1,8 +1,10 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
-from .types import Operation, Stack, nil
-from .errors import JoyError
-from .parser import parse
+from typing import Any
+
+from .types import Operation, Stack, nil, StructInstance
+from .errors import JoyError, JoyStackError, JoyNameError
+from .parser import parse, TYPE_NAME_MAP
 from .formatting import show_stack, stack_to_list
 from .interpreter import interpret
 
@@ -70,3 +72,55 @@ def comb_exec_b(_, queue, tail: Stack, head: list|tuple, lib):
         result = exc
 
     return tail.pushed(result, is_ok)
+
+
+def _get_expected_python_type_for_field(field: dict):
+    """Resolve the Python type that a struct field is expected to hold."""
+    if field.get("quote") is not None: return list
+    type_name = (field.get("type") or "").lower()
+    return TYPE_NAME_MAP.get(type_name, object)
+
+def comb_struct(this: Operation, queue, *stack, lib):
+    """Construct a StructInstance from N field values and a type symbol on the stack."""
+
+    base, type_symbol = stack
+    if not isinstance(type_symbol, bytes):
+        raise JoyStackError("`struct` expects 'TypeName literal as top of stack.", joy_op=this)
+
+    type_key = bytes(type_symbol) if not isinstance(type_symbol, bytes) else type_symbol
+    if (meta := lib.struct_types.get(type_key)) is None:
+        raise JoyNameError(f"Struct type `{type_key}` is not registered. Did you define it?", joy_op=this)
+
+    fields, current = [], base
+    for idx, field_meta in enumerate(meta.fields, start=1):
+        if current is nil:
+            raise JoyStackError(f"`struct` for `{type_key}` needs at least {len(meta.fields)} field value(s) below the type symbol.", joy_op=this)
+        current, value = current
+        expected = _get_expected_python_type_for_field(field_meta)
+        if expected not in (object, Any) and not isinstance(value, expected):
+            label = field_meta.get("label") or f"field {idx}"
+            raise JoyStackError(f"`struct` for `{type_key}` expects {expected.__name__} for {label}, got {type(value).__name__}.", joy_op=this)
+        fields.append(value)
+
+    instance = StructInstance(typename=type_key, fields=tuple(reversed(fields)))
+    return Stack(current, instance)
+
+
+def comb_destruct(this: Operation, queue, *stack, lib):
+    """Explode a StructInstance back into its fields on the stack."""
+
+    base, top = stack
+    if not isinstance(top, StructInstance):
+        raise JoyStackError("`destruct` expects a StructInstance value on top of the stack.", joy_op=this)
+
+    type_key = top.typename
+    if (meta := lib.struct_types.get(type_key)) is None:
+        raise JoyNameError(f"Struct type `{type_key.decode('utf-8', errors='ignore')}` is not registered.", joy_op=this)
+
+    if len(top.fields) != meta.arity:
+        raise JoyStackError(f"`destruct` encountered a StructInstance for `{type_key}` with {len(top.fields)} field(s), expected {meta.arity}.", joy_op=this)
+
+    result = base
+    for value in top.fields:
+        result = Stack(result, value)
+    return result

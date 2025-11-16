@@ -3,8 +3,8 @@
 import ast
 from fractions import Fraction
 
-from .types import Operation, Quotation
-from .errors import JoyError, JoyNameError
+from .types import Operation, Quotation, StructMeta
+from .errors import JoyError, JoyNameError, JoyTypeDuplicate
 from .library import Library
 
 
@@ -92,6 +92,19 @@ def load_joy_library(export_lib: Library, sections: dict, filename: str, context
     export_scope = f"{module_name}." if module_name else ""
     # Overlay for definitions: writes go to the local dict, reads fall back to context.
     local_lib = context_lib.with_overlay()
+
+    # Register product-type TYPEDEFs as struct types in the export library.
+    for _visibility, typename, type_meta in sections.get("types") or []:
+        if type_meta.get("kind") != "product": continue
+
+        fields = tuple(type_meta.get("fields") or [])
+        if (arity := len(fields)) <= 0: continue
+
+        key = typename.encode("utf-8")
+        struct_meta = StructMeta(name=key, arity=arity, fields=fields)
+        if (existing := export_lib.struct_types.get(key)) is not None and existing != struct_meta:
+            raise JoyTypeDuplicate(f"Struct type `{typename}` already registered, and shapes differ.", joy_token=typename, joy_meta={"filename": filename})
+        export_lib.struct_types[key] = struct_meta
 
     # Link PRIVATE first so PUBLIC can depend on them. Mark them first as "local" so they can be found.
     _populate_joy_definitions(private_defs, lib=local_lib, visibility="local", module=module_name)

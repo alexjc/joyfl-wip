@@ -79,3 +79,18 @@ class Quotation:
     meta: dict             # filename, start/finish, signature, etc.
     visibility: Visibility # "public", "private", or temporary "local"
     module: str | None     # MODULE name, or None for global/legacy
+
+
+@dataclass(frozen=True)
+class StructMeta:
+    """Metadata for product-type structs registered from Joy TYPEDEF declarations."""
+    name: bytes
+    arity: int
+    fields: tuple[dict, ...]
+
+
+@dataclass(frozen=True)
+class StructInstance:
+    """Runtime representation of a product type instance constructed via `struct`."""
+    typename: bytes              # Symbol name as emitted by `'MyStructType` literals.
+    fields: tuple[object, ...]   # Field values in left-to-right declaration order.
