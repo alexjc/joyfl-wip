@@ -17,8 +17,16 @@ def _resolve_joy_paths() -> list[Path]:
     parts = [p for p in os.environ.get("JOY_PATH", "").split(os.pathsep) if p]
     return [Path(os.path.expanduser(os.path.expandvars(p))) for p in parts]
 
-def get_python_name(joy_name):
+def get_python_name(joy_name: str) -> str:
+    """Map a Joy operation name to its Python function name."""
     return 'op_'+joy_name.replace('-', '_').replace('!', '_b').replace('?', '_q')
+
+
+def get_joy_name(py_name: str) -> str:
+    """Inverse of `get_python_name` for well-formed operator names."""
+    if not py_name.startswith("op_"):
+        raise JoyModuleError(f"Operator function `{py_name}` requires prefix `op_` by convention.", joy_token=py_name, joy_meta=None)
+    return py_name[3:].replace('_b', '!').replace('_q', '?').replace('_', '-')
 
 
 def iter_joy_module_candidates(module_name: str):
@@ -55,16 +63,16 @@ def load_library_module(ns: str, meta: dict):
     raise JoyModuleError(f"Module `{ns}` not found.", joy_token=ns, joy_meta=meta)
 
 
-def resolve_module_op(ns: str, name: str, *, meta: dict | None = None):
+def iter_module_operators(ns: str, *, meta: dict | None = None):
+    """Yield `(joy_name, py_function)` pairs for all operators in a module for bulk loading."""
     py_module = load_library_module(ns, meta=meta)
     # Require explicit operator registry on module; otherwise treat as module error.
     if not hasattr(py_module, '__operators__') or not isinstance(getattr(py_module, '__operators__'), list):
         raise JoyModuleError(f"Module `{ns}` is missing operator registry `__operators__`.", joy_token=f"{ns}", joy_meta=meta)
-    if not (py_name := get_python_name(name)) and py_module is None: return None
     # All modules require an explicit registry of operators defined.
     for w in getattr(py_module, '__operators__', []):
-        if getattr(w, '__name__', '') == py_name: return w
-    raise JoyNameError(f"Operation `{py_name}` not found in module `{ns}`.", joy_token=f"{ns}.{name}", joy_meta=meta)
+        if not (py_name := getattr(w, '__name__', '')): continue
+        yield get_joy_name(py_name), w
 
 
 def _normalize_expected_type(tp):
