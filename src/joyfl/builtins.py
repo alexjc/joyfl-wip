@@ -1,8 +1,8 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
 from . import operators
+from . import combinators as C
 from .library import Library
-from .combinators import comb_i, comb_dip, comb_step, comb_cont, comb_exec_b
 
 
 def _joy_name_from_python(py_name: str) -> str:
@@ -15,11 +15,13 @@ def _joy_name_from_python(py_name: str) -> str:
 def load_builtins_library():
     # Combinators
     combinators = {
-        'i': comb_i,
-        'dip': comb_dip,
-        'step': comb_step,
-        '...': comb_cont,
-        'exec!': comb_exec_b,
+        'i': C.comb_i,
+        'dip': C.comb_dip,
+        'step': C.comb_step,
+        '...': C.comb_cont,
+        'exec!': C.comb_exec_b,
+        'struct': C.comb_struct,
+        'destruct': C.comb_destruct,
     }
     quotations = {}
     constants = {'true': True, 'false': False}

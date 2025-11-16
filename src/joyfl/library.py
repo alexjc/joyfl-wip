@@ -4,7 +4,7 @@ from typing import Any, Callable
 from collections import ChainMap
 from dataclasses import dataclass, field, replace
 
-from .types import Stack, Quotation
+from .types import Stack, Quotation, StructMeta
 from .errors import JoyNameError, JoyTypeError
 from .loader import get_stack_effects
 
@@ -20,6 +20,7 @@ class Library:
     joy_module_loader: Callable | None = None
     py_module_loader: Callable | None = None
     loaded_modules: set[str] = field(default_factory=set)
+    struct_types: dict[bytes, StructMeta] = field(default_factory=dict)
 
     # Registration helpers
     def add_function(self, name: str, fn: Callable[..., Any]) -> None:
