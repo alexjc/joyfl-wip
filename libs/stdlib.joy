@@ -131,7 +131,7 @@ DEFINE
     *               Uses _separate-results helper to separate results from preserved stack items.
     *)
     
-    unary           : ( x [P] -- R )
+    unary           : ( x [p] -- [r] )
                     ==  stack rest rest               # save preserved items (excluding arg and quotation)
                         [i] dip                       # run quotation on argument, keep preserved list safe
                         _stack-and-keep-one           # get snapshot of all stack items

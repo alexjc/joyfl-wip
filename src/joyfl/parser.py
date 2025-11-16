@@ -16,12 +16,19 @@ library: module_clause? private_clause? public_clause? (END | DOT)+
 module_clause: "MODULE" NAME
 private_clause: ("PRIVATE" | "HIDDEN") definition_sequence
 public_clause: ("PUBLIC" | "DEFINE" | "LIBRA") definition_sequence
-// definition_sequence: definition (SEPARATOR definition)* SEPARATOR?
 definition_sequence: definition (SEPARATOR definition)* SEPARATOR?
-definition: NAME stack_effect? EQUALS term
-stack_effect: COLON LPAREN stack_pattern ARROW stack_pattern RPAREN
+definition: term_definition | type_definition
+term_definition: NAME stack_effect_annotation? EQUALS term
+stack_effect_annotation: COLON stack_effect
+stack_effect: LPAREN stack_pattern ARROW stack_pattern RPAREN
 stack_pattern: stack_item*
-stack_item: PARAM | LSQB PARAM RSQB | LBRACE PARAM+ RBRACE
+stack_item: stack_atom | LSQB stack_atom RSQB | LBRACE stack_atom+ RBRACE
+stack_atom: PARAM | TYPE_NAME
+
+type_definition: TYPE_NAME TYPEDEF (product_type | sum_type)
+product_type: (PARAM | stack_effect)+
+sum_type: constructor (BAR constructor)*
+constructor: TYPE_NAME PARAM*
 
 ?term: (NAME | ELLIPSIS | FLOAT | INTEGER | FRACTION | CHAR | STRING | LBRACE CHAR_OR_INT* RBRACE | LSQB term RSQB)*
 
@@ -34,6 +41,9 @@ END.9: "END"
 ELLIPSIS.10: /\.\.\./
 DOT.9: /\.(?![A-Za-z0-9!+\-=<>_,?.])/
 SEPARATOR: ";"
+TYPEDEF.11: "::"
+BAR: "|"
+TYPE_NAME: /[A-Z][A-Za-z]*[a-z]/
 STRING.8: /"(?:[^"\\]|\\.)*"/
 FLOAT.8: /-?(?:\d+\.\d+)(?:[eE][+-]?\d+)?/
 INTEGER.8: /-?\d+/
@@ -49,8 +59,8 @@ LSQB: "["
 RSQB: "]"
 LBRACE: "{"
 RBRACE: "}"
-PARAM: /[A-Za-z]+(?::[A-Za-z]+)?/
-NAME: /[^\s\[\]\\(\){\}\;\.\#](?:[A-Za-z0-9!+\-=<>_,?.]*[A-Za-z0-9!+\-=<>_,?])?/
+PARAM: /[a-z]+(?::[A-Za-z]+)?/
+NAME: /[^\s\[\]\\(\){\}\;\.\#\|A-Z](?:[A-Za-z0-9!+\-=<>_,?.]*[A-Za-z0-9!+\-=<>_,?])?/
 
 // WHITESPACE
 %import common.WS
@@ -109,31 +119,40 @@ def parse(source: str, start='start', filename=None):
                 entry['type'], entry['label'] = lower, None
         return entry
 
+    def _stack_atom_to_entry(atom: lark.Tree) -> dict:
+        assert isinstance(atom, lark.Tree) and atom.data == 'stack_atom'
+        # By grammar, a stack_atom always contains a single token: PARAM or TYPE_NAME.
+        tok = next(ch for ch in atom.children if isinstance(ch, lark.Token))
+        if tok.type == 'PARAM':
+            return _param_entry(tok.value)
+        assert tok.type == 'TYPE_NAME'
+        return {'label': None, 'type': tok.value, 'quote': None, 'raw': tok.value}
+
+    def _is_token(node, type_: str) -> bool: return isinstance(node, lark.Token) and node.type == type_
+    def _is_tree(node, data_: str) -> bool: return isinstance(node, lark.Tree) and node.data == data_
+
     def _stack_pattern(tree):
         items = []
         for item in tree.children:
             if not isinstance(item, lark.Tree) or not item.children:
                 continue
+            children = list(item.children)
 
-            children = item.children
-            # PARAM-based stack items: WORD or WORD:TYPE
-            if (first := children[0]) and isinstance(first, lark.Token) and first.type == 'PARAM':
-                items.append(_param_entry(first.value))
+            # PARAM-based stack items: WORD or WORD:TYPE or TYPE.
+            if len(children) == 1 and _is_tree(children[0], 'stack_atom'):
+                items.append(_stack_atom_to_entry(children[0]))
                 continue
-
-            assert isinstance(children[0], lark.Token) and isinstance(children[-1], lark.Token)
-            # LIST-implied stack items: [PARAM] single-item expected.
-            if children[0].type == 'LSQB' and children[-1].type == 'RSQB' and (inner := children[1]):
-                # By grammar, inner is always a single PARAM.
-                assert isinstance(inner, lark.Token) and inner.type == 'PARAM'
-                items.append({'quote': [_param_entry(inner.value)], 'label': None, 'type': 'list', 'raw': None})
+            # LIST-implied stack items: [stack_atom] single-item expected.
+            if len(children) == 3 and _is_token(children[0], 'LSQB') and _is_tree(children[1], 'stack_atom') and _is_token(children[2], 'RSQB'):
+                inner_entry = _stack_atom_to_entry(children[1])
+                items.append({'quote': [inner_entry], 'label': None, 'type': 'list', 'raw': None})
                 continue
-            # TUPLE-specified product data-type; {PARAM ...} multiple items likely.
-            if children[0].type == 'LBRACE' and children[-1].type == 'RBRACE':
-                inner_items = [_param_entry(ch.value) for ch in children[1:-1]]
+            # TUPLE-specified product data-type; {stack_atom ...} multiple items likely.
+            if len(children) >= 3 and _is_token(children[0], 'LBRACE') and _is_token(children[-1], 'RBRACE'):
+                inner_items = [_stack_atom_to_entry(ch) for ch in children[1:-1] if _is_tree(ch, 'stack_atom')]
                 items.append({'quote': inner_items, 'label': None, 'type': 'list', 'raw': None})
                 continue
-            raise NotImplementedError("Unexpected bracket pattern in stack_item.")
+            raise NotImplementedError("Unexpected pattern from parser in stack_item.")
 
         return items
 
@@ -146,7 +165,7 @@ def parse(source: str, start='start', filename=None):
 
     def _flatten(node):
         if isinstance(node, lark.Tree):
-            if node.data == 'stack_effect': return
+            if node.data in ('stack_effect_annotation', 'stack_effect'): return
             for child in node.children:
                 yield from _flatten(child)
         elif node.type not in ('SEPARATOR', 'COLON', 'LPAREN', 'RPAREN', 'ARROW'):
@@ -154,17 +173,24 @@ def parse(source: str, start='start', filename=None):
                     'columns': (node.column, node.end_column)} if hasattr(node, 'line') else {}
             yield (node.type, node.value, meta)
 
-    def _extract_definition(node):
-        if not isinstance(node, lark.Tree) or node.data != 'definition':
-            return None
+    def _as_term_definition_node(node: lark.Tree | None) -> lark.Tree | None:
+        if not isinstance(node, lark.Tree): return None
+        if node.data == 'term_definition': return node
+        if node.data == 'definition':
+            if len(node.children) != 1 or not isinstance(node.children[0], lark.Tree): return None            
+            return inner if (inner := node.children[0]) and inner.data == 'term_definition' else None
+        return None
 
-        children = list(node.children)
+    def _extract_definition_body(node):
+        if (def_node := _as_term_definition_node(node)) is None: return None
+        children = list(def_node.children)
         idx = 0
 
         name_token = children[idx]; idx += 1
         signature = None
-        if idx < len(children) and isinstance(children[idx], lark.Tree) and children[idx].data == 'stack_effect':
-            stack_effect = _stack_effect(children[idx])
+        if idx < len(children) and (anno := children[idx]) and isinstance(anno, lark.Tree) and anno.data == 'stack_effect_annotation':
+            effect_node = next(ch for ch in anno.children if isinstance(ch, lark.Tree) and ch.data == 'stack_effect')
+            stack_effect = _stack_effect(effect_node)
             signature = _stack_effect_to_meta(stack_effect)
             idx += 1
         if idx < len(children) and isinstance(children[idx], lark.Token) and children[idx].type == 'EQUALS':
@@ -194,7 +220,7 @@ def parse(source: str, start='start', filename=None):
                     name_token = next((t for t in ch.children if isinstance(t, lark.Token) and t.type == 'NAME'), None)
                     sections['module'] = name_token.value if name_token is not None else None
                 else:
-                    sections[key] = [parsed for def_node in ch.children[0].children if (parsed := _extract_definition(def_node))]
+                    sections[key] = [parsed for def_node in ch.children[0].children if (parsed := _extract_definition_body(def_node))]
             yield 'library', sections
         elif it.data == 'term':
             yield 'term', list(_flatten(it))
@@ -204,9 +230,9 @@ def parse(source: str, start='start', filename=None):
 
     try:
         tree = parser.parse(source)
-    except lark.exceptions.ParseError as exc:
+    except (lark.exceptions.ParseError, lark.exceptions.UnexpectedCharacters) as exc:
         def attr(k): return getattr(exc, k, None)
-        token_val = getattr(attr('token'), 'value', None)
+        token_val = getattr(token, 'value', '') if (token := attr('token')) is not None else ''
         error_class = JoyIncompleteParse if token_val == '' else JoyParseError
         raise error_class(str(exc), filename=filename, line=attr('line'), column=attr('column'), token=token_val) from None
     yield from _traverse(tree)
