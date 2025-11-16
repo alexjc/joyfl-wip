@@ -53,10 +53,9 @@ class Library:
         if '.' in resolved_name and self.py_module_loader is not None:
             ns, op = resolved_name.split('.', 1)
             if ns not in self.loaded_modules:
+                # Load and register all operators from the Python module at once.
                 self.py_module_loader(self, ns, op, meta)
-                prefix = ns + "."
-                if any(k.startswith(prefix) for k in self.functions):
-                    self.loaded_modules.add(ns)
+                self.loaded_modules.add(ns)
             if (fn := self.functions.get(resolved_name)) is not None:
                 return fn
         raise JoyNameError(f"Operation `{name}` not found in library.", joy_token=name, joy_meta=meta)

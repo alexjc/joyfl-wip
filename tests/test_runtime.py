@@ -1,12 +1,14 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
 from pathlib import Path
+import os
 
 from joyfl.errors import JoyNameError, JoyTypeMissing
 from joyfl.runtime import Runtime
 from joyfl.types import Stack
 from joyfl.linker import link_body
 from joyfl.parser import parse
+from joyfl.loader import _LIB_MODULES
 
 import pytest
 
@@ -148,6 +150,73 @@ def test_runtime_preserves_quotations_and_order():
     for code, expected in cases:
         stack = rt.run(code + " .")
         assert rt.from_stack(stack) == expected
+
+
+def _write_py_module(tmp_path: Path, name: str, content: str) -> Path:
+    p = tmp_path / f"{name}.py"
+    p.write_text(content, encoding="utf-8")
+    return p
+
+
+def _setup_py_module_env(monkeypatch, tmp_path: Path) -> None:
+    # Search only our temp dir for Python-backed Joy modules.
+    monkeypatch.setenv("JOY_PATH", str(tmp_path))
+    # Ensure a fresh loader cache between tests.
+    _LIB_MODULES.clear()
+
+
+def test_runtime_python_module_multiple_operations(tmp_path, monkeypatch):
+    module_source = (
+        "def op_first(x: int) -> int:\n"
+        "    return x + 1\n"
+        "\n"
+        "def op_second(x: int) -> int:\n"
+        "    return x * 2\n"
+        "\n"
+        "__operators__ = [op_first, op_second]\n"
+    )
+
+    _write_py_module(tmp_path, "rtmod", module_source)
+    _setup_py_module_env(monkeypatch, tmp_path)
+
+    rt = Runtime()
+
+    # First operation from the module should load and execute correctly.
+    stack1 = rt.apply("rtmod.first", rt.to_stack([3]))
+    assert rt.from_stack(stack1) == [4]
+
+    # A second operation from the same module must also load correctly,
+    # even though the namespace has already been accessed once.
+    stack2 = rt.apply("rtmod.second", rt.to_stack([3]))
+    assert rt.from_stack(stack2) == [6]
+
+    # The underlying Python module itself should only be imported once.
+    assert "rtmod" in _LIB_MODULES
+
+
+def test_library_python_module_multiple_operations(tmp_path, monkeypatch):
+    module_source = (
+        "def op_first(x: int) -> int:\n"
+        "    return x + 1\n"
+        "\n"
+        "def op_second(x: int) -> int:\n"
+        "    return x * 2\n"
+        "\n"
+        "__operators__ = [op_first, op_second]\n"
+    )
+
+    _write_py_module(tmp_path, "rtmod2", module_source)
+    _setup_py_module_env(monkeypatch, tmp_path)
+
+    rt = Runtime()
+    lib = rt.library
+
+    fn_first = lib.get_function("rtmod2.first")
+    fn_second = lib.get_function("rtmod2.second")
+
+    assert callable(fn_first)
+    assert callable(fn_second)
+    assert fn_first is not fn_second
 
 
 def _resolve_operation(rt: Runtime, name: str):

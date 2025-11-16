@@ -10,7 +10,7 @@ from .library import Library
 from .builtins import load_builtins_library
 from .formatting import list_to_stack as _list_to_stack, stack_to_list as _stack_to_list
 from .interpreter import interpret, can_execute, interpret_step
-from .loader import iter_joy_module_candidates, resolve_module_op
+from .loader import iter_joy_module_candidates, iter_module_operators
 
 
 class Runtime:
@@ -30,8 +30,8 @@ class Runtime:
                 break
 
         def _py_loader(lib: Library, ns: str, op: str, meta: dict | None) -> None:
-            py_fn = resolve_module_op(ns, op, meta=meta)
-            lib.add_function(f"{ns}.{op}", py_fn)
+            for joy_name, py_fn in iter_module_operators(ns, meta=meta):
+                lib.add_function(f"{ns}.{joy_name}", py_fn)
 
         self.library.joy_module_loader = _joy_loader
         self.library.py_module_loader = _py_loader
