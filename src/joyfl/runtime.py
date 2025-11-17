@@ -4,6 +4,7 @@ from typing import Any, Callable
 from collections import deque
 
 from .types import Operation, Stack, nil
+from .errors import JoyModuleError
 from .parser import parse
 from .linker import link_body, load_joy_library
 from .library import Library
@@ -19,22 +20,24 @@ class Runtime:
     def __init__(self, library: Library | None = None):
         self.library = library or load_builtins_library()
 
-        def _joy_loader(lib: Library, ns: str, meta: dict | None) -> None:
-            context_lib: Library = lib
-            for src in iter_joy_module_candidates(ns):
-                if not src.exists(): continue
-                source_text = src.read_text(encoding="utf-8")
-                for typ, data in parse(source_text, filename=str(src)):
-                    if typ == "library":
-                        context_lib = load_joy_library(lib, data, str(src), context_lib)
-                break
+        self.library.joy_module_loader = self._joy_loader
+        self.library.py_module_loader = self._py_loader
 
-        def _py_loader(lib: Library, ns: str, op: str, meta: dict | None) -> None:
-            for joy_name, py_fn in iter_module_operators(ns, meta=meta):
-                lib.add_function(f"{ns}.{joy_name}", py_fn)
+    def _joy_loader(self, lib: Library, ns: str, meta: dict | None) -> None:
+        context_lib: Library = lib
+        for src in iter_joy_module_candidates(ns):
+            if not src.exists(): continue
+            source_text = src.read_text(encoding="utf-8")
+            for typ, data in parse(source_text, filename=str(src)):
+                if typ == "library":
+                    context_lib = self._load_joy_block(lib, data, str(src), context_lib, expected_ns=ns, meta=meta)
+            break
 
-        self.library.joy_module_loader = _joy_loader
-        self.library.py_module_loader = _py_loader
+    def _py_loader(self, lib: Library, ns: str, op: str, meta: dict | None) -> None:
+        for joy_name, py_fn in iter_module_operators(ns, meta=meta):
+            lib.add_function(f"{ns}.{joy_name}", py_fn)
+        lib.mark_module_loaded(ns)
+
 
     # Assembly ────────────────────────────────────────────────────────────────────────────────
     def operation(self, name: str) -> Operation:
@@ -70,6 +73,18 @@ class Runtime:
     def load(self, source: str, filename: str | None = None, validate: bool = False) -> None:
         self._execute(source, filename, 0, validate, None)
 
+    def _load_joy_block(self, export_lib: Library, data: dict, filename: str,
+                        context_lib: Library, *, expected_ns: str | None,
+                        meta: dict | None) -> Library:
+        if (declared_ns := data.get("module")) != expected_ns and expected_ns is not None:
+            raise JoyModuleError(
+                f"Module `{declared_ns}` declared in `{filename}` does not match expected prefix `{expected_ns}`.",
+                joy_token=expected_ns, filename=filename, joy_meta=meta)
+        context = load_joy_library(export_lib, data, filename, context_lib)
+        if module_name := (declared_ns or expected_ns):
+            export_lib.mark_module_loaded(module_name)
+        return context
+
     def _execute(self, source: str, filename: str | None, verbosity: int,
                  validate: bool, stats: dict | None):
         out = None
@@ -79,7 +94,7 @@ class Runtime:
                 prg, _ = link_body(data, meta={'filename': filename, 'lines': (2**32, -1)}, lib=context_lib)
                 out = interpret(prg, lib=self.library, verbosity=verbosity, validate=validate, stats=stats)
             elif typ == 'library':
-                context_lib = load_joy_library(self.library, data, filename, context_lib)
+                context_lib = self._load_joy_block(self.library, data, filename, context_lib, expected_ns=None, meta=None)
                 out = nil
         return out
 
