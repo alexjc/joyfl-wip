@@ -253,17 +253,13 @@ def run_module(ctx: click.Context, name: str) -> None:
     else:
         module_name, module_term = name, 'main'
 
-    # Eagerly load Joy module definitions and expose PUBLIC words as bare aliases
-    # before executing the entry point. This ensures nested `J.run(...)` calls
-    # (e.g. via `os.exec-file!`) can see PUBLIC words like `expect-equal`.
-    lib = runner.runtime.library
     # Trigger joy_module_loader for `<module_name>` by resolving the entry quotation.
-    lib.get_quotation(f"{module_name}.{module_term}", meta={'filename': f'<MOD:{module_name}.{module_term}>', 'lines': (0, 0)})
+    lib = runner.runtime.library
+    _ = lib.get_quotation(f"{module_name}.{module_term}", meta={'filename': f'<MOD:{module_name}.{module_term}>', 'lines': (0, 0)})
 
     # Expose module PUBLIC words as dotted and bare aliases without overriding existing names.
     for qname, q in list(lib.quotations.items()):
-        if not qname.startswith(f"{module_name}."):
-            continue
+        if not qname.startswith(f"{module_name}."): continue
         if (bare := qname.split(".", 1)[1]) not in lib.quotations:
             lib.quotations[bare] = q
 
