@@ -7,7 +7,7 @@ from types import UnionType
 from typing import Any, ForwardRef, TypeVar, Callable, get_origin, get_args
 
 from .types import Stack
-from .errors import JoyNameError, JoyModuleError, JoyTypeMissing, JoyTypeError
+from .errors import JoyModuleError, JoyTypeMissing, JoyTypeError
 
 
 _LIB_MODULES: dict[str, object] = {}
@@ -20,7 +20,6 @@ def _resolve_joy_paths() -> list[Path]:
 def get_python_name(joy_name: str) -> str:
     """Map a Joy operation name to its Python function name."""
     return 'op_'+joy_name.replace('-', '_').replace('!', '_b').replace('?', '_q')
-
 
 def get_joy_name(py_name: str) -> str:
     """Inverse of `get_python_name` for well-formed operator names."""

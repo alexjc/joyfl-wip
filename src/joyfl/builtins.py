@@ -2,14 +2,8 @@
 
 from . import operators
 from . import combinators as C
+from .loader import get_joy_name
 from .library import Library
-
-
-def _joy_name_from_python(py_name: str) -> str:
-    # py_name like 'op_equal_q' -> 'equal?'; 'op_put_b' -> 'put!'; underscores -> dashes
-    base = py_name[3:]
-    base = base.replace('_q', '?').replace('_b', '!')
-    return base.replace('_', '-')
 
 
 def load_builtins_library():
@@ -36,9 +30,8 @@ def load_builtins_library():
 
     # Functions (wrapped via Library helper)
     for k in dir(operators):
-        if not k.startswith('op_'):
-            continue
-        joy = _joy_name_from_python(k)
+        if not k.startswith('op_'): continue
+        joy = get_joy_name(k)
         lib.add_function(joy, getattr(operators, k))
 
     lib.ensure_consistent()
