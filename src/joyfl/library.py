@@ -39,9 +39,7 @@ class Library:
         resolved_name = self.aliases.get(name, name)
         if '.' in resolved_name and self.joy_module_loader is not None:
             if (ns := resolved_name.split('.', 1)[0]) not in self.loaded_modules:
-                self.joy_module_loader(self, ns, meta)                
-                if (prefix := ns + ".") and any(k.startswith(prefix) for k in self.quotations):
-                    self.loaded_modules.add(ns)
+                self.joy_module_loader(self, ns, meta)
         if (q := self.quotations.get(resolved_name)) and q.visibility != "private":
             return q
         return None
@@ -55,7 +53,6 @@ class Library:
             if ns not in self.loaded_modules:
                 # Load and register all operators from the Python module at once.
                 self.py_module_loader(self, ns, op, meta)
-                self.loaded_modules.add(ns)
             if (fn := self.functions.get(resolved_name)) is not None:
                 return fn
         raise JoyNameError(f"Operation `{name}` not found in library.", joy_token=name, joy_meta=meta)
@@ -65,6 +62,9 @@ class Library:
         """Create new view sharing all structure with this one, except for an overlaid `quotations` mapping."""
         overlay_quotations = ChainMap({}, self.quotations)
         return replace(self, quotations=overlay_quotations)
+
+    def mark_module_loaded(self, ns: str):
+        self.loaded_modules.add(ns)
 
 
 def _make_wrapper(fn: Callable[..., Any], name: str) -> Callable[..., Any]:
