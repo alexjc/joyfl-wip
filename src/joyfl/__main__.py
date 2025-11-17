@@ -247,17 +247,18 @@ def run_file(ctx: click.Context, script, runtime_args: tuple[str, ...]) -> None:
 @click.pass_context
 def run_module(ctx: click.Context, name: str) -> None:
     runner = JoyRunner(ctx.obj['config'])
-
     if '.' in name:
         module_name, module_term = name.split('.', 1)
         module_term = module_term or 'main'
     else:
         module_name, module_term = name, 'main'
 
-    # Execute `<module_name>.<module_term>`; runtime auto-loads Joy module on first dotted use.
+    # Eagerly load Joy module definitions and expose PUBLIC words as bare aliases
+    # before executing the entry point. This ensures nested `J.run(...)` calls
+    # (e.g. via `os.exec-file!`) can see PUBLIC words like `expect-equal`.
     lib = runner.runtime.library
-    program = f"{module_name}.{module_term} .\n"
-    runner.execute_items((ExecutionItem(program, f'<MOD:{module_name}.{module_term}>'),))
+    # Trigger joy_module_loader for `<module_name>` by resolving the entry quotation.
+    lib.get_quotation(f"{module_name}.{module_term}", meta={'filename': f'<MOD:{module_name}.{module_term}>', 'lines': (0, 0)})
 
     # Expose module PUBLIC words as dotted and bare aliases without overriding existing names.
     for qname, q in list(lib.quotations.items()):
@@ -265,6 +266,10 @@ def run_module(ctx: click.Context, name: str) -> None:
             continue
         if (bare := qname.split(".", 1)[1]) not in lib.quotations:
             lib.quotations[bare] = q
+
+    # Execute `<module_name>.<module_term>`; runtime auto-loads Joy module on first dotted use.
+    program = f"{module_name}.{module_term} .\n"
+    runner.execute_items((ExecutionItem(program, f'<MOD:{module_name}.{module_term}>'),))
     ctx.exit(runner.finalize())
 
 

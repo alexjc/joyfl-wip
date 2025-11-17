@@ -1,4 +1,4 @@
-## joyfl — CLI error integration tests
+## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
 import os, sys
 import subprocess
@@ -176,3 +176,26 @@ def test_cli_run_mod_uses_local_library_helpers(tmp_path: Path):
     # `helper 1 + put!` must have executed successfully, printing `42`.
     lines = _strip_output_lines(result.stdout)
     assert "42" in lines[-1]
+
+
+def test_cli_run_mod_exposes_public_words_to_nested_exec_file(tmp_path: Path):
+    mod_dir = tmp_path
+    (mod_dir / "mymod.joy").write_text(
+        'MODULE mymod PUBLIC expect-equal == equal? ; main == [ 1 1 expect-equal ] exec! ; END.\n',
+        encoding="utf-8",
+    )
+    result = run_cli("-m", "mymod", env={"JOY_PATH": str(mod_dir)})
+    assert result.returncode == 0
+    assert "LINKER ERROR." not in result.stdout
+
+
+def test_cli_run_mod_nested_linker_error_reports_correct_token(tmp_path: Path):
+    mod_dir = tmp_path
+    (mod_dir / "mymod.joy").write_text(
+        'MODULE mymod PUBLIC main == [ 1 2 totally-unknown-word ] exec! ; END.\n',
+        encoding="utf-8",
+    )
+    result = run_cli("-m", "mymod", env={"JOY_PATH": str(mod_dir)})
+    out = result.stdout
+    assert result.returncode != 0
+    assert "Operation `totally-unknown-word` not found in library." in out

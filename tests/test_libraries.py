@@ -9,23 +9,23 @@ import pytest
 
 def test_library_persistence_across_runs():
     rt = Runtime()
-    src_def = "MODULE test PUBLIC five == 5 ; END."
+    src_def = "MODULE myprivmod PUBLIC five == 5 ; END."
     rt.load(src_def, filename="<LIB>")
-    stack = rt.run("test.five 3 + .", filename="<USE>")
+    stack = rt.run("myprivmod.five 3 + .", filename="<USE>")
     assert rt.from_stack(stack) == [8]
 
 
 def test_library_private_definitions_available_to_public():
     rt = Runtime()
-    src_def = "MODULE test PRIVATE helper == 41 ; PUBLIC answer == helper 1 + ; END."
+    src_def = "MODULE myprivmod PRIVATE helper == 41 ; PUBLIC answer == helper 1 + ; END."
     rt.load(src_def, filename="<LIB>")
-    stack = rt.run("test.answer .", filename="<USE>")
+    stack = rt.run("myprivmod.answer .", filename="<USE>")
     assert rt.from_stack(stack) == [42]
 
 
 def test_library_private_definitions_not_exported():
     rt = Runtime()
-    src_def = "MODULE test PRIVATE helper == 41 ; PUBLIC answer == helper 1 + ; END."
+    src_def = "MODULE myprivmod PRIVATE helper == 41 ; PUBLIC answer == helper 1 + ; END."
     rt.load(src_def, filename="<LIB>")
     # Private helper should not be callable from outside the module.
     with pytest.raises(JoyNameError):
