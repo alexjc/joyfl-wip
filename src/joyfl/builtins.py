@@ -15,7 +15,7 @@ def load_builtins_library():
         '...': C.comb_cont,
         'exec!': C.comb_exec_b,
         'struct': C.comb_struct,
-        'destruct': C.comb_destruct,
+        'unstruct': C.comb_unstruct,
     }
     quotations = {}
     constants = {'true': True, 'false': False}

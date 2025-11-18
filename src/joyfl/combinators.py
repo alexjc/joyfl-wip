@@ -115,19 +115,19 @@ def comb_struct(this: Operation, queue, *stack, lib):
     return Stack(current, instance)
 
 
-def comb_destruct(this: Operation, queue, *stack, lib):
+def comb_unstruct(this: Operation, queue, *stack, lib):
     """Explode a StructInstance back into its fields on the stack."""
 
     base, top = stack
     if not isinstance(top, StructInstance):
-        raise JoyStackError("`destruct` expects a StructInstance value on top of the stack.", joy_op=this)
+        raise JoyStackError("`unstruct` expects a StructInstance value on top of the stack.", joy_op=this)
 
     type_key = top.typename
     if (meta := lib.struct_types.get(type_key)) is None:
         raise JoyNameError(f"Struct type {repr(type_key)[1:-1]} is not registered.", joy_op=this)
 
     if len(top.fields) != meta.arity:
-        raise JoyStackError(f"`destruct` encountered a StructInstance for {repr(type_key)[1:-1]} with {len(top.fields)} field(s), expected {meta.arity}.", joy_op=this)
+        raise JoyStackError(f"`unstruct` encountered a StructInstance for {repr(type_key)[1:-1]} with {len(top.fields)} field(s), expected {meta.arity}.", joy_op=this)
 
     result = base
     for value in top.fields:

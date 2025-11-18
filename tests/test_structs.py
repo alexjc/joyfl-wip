@@ -32,9 +32,9 @@ def test_struct_roundtrip_runtime():
     assert struct.typename == b"MyPair"
     assert struct.fields == (1, 2)
 
-    stack = rt.run("1 2 'MyPair struct destruct .", filename="<TEST>")
+    stack = rt.run("1 2 'MyPair struct unstruct .", filename="<TEST>")
     # Stack order is from top to bottom; original stack after `1 2` was [2, 1],
-    # so struct/destruct should behave as a no-op on the underlying stack.
+    # so struct/unstruct should behave as a no-op on the underlying stack.
     assert rt.from_stack(stack) == [2, 1]
 
 
