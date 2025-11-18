@@ -26,7 +26,8 @@ stack_item: stack_atom | LSQB stack_atom RSQB | LBRACE stack_atom+ RBRACE
 stack_atom: PARAM | TYPE_NAME
 
 type_definition: TYPE_NAME TYPEDEF (product_type | sum_type)
-product_type: (PARAM | stack_effect)+
+product_type: (PARAM | list_param | stack_effect)+
+list_param: LSQB PARAM RSQB
 sum_type: constructor (BAR constructor)*
 constructor: TYPE_NAME PARAM*
 
@@ -59,7 +60,7 @@ LSQB: "["
 RSQB: "]"
 LBRACE: "{"
 RBRACE: "}"
-PARAM: /[a-z]+(?::[A-Za-z]+)?/
+PARAM: /[a-z]+(?::[A-Za-z\-_]+)?/
 NAME: /[^\s\[\]\\(\){\}\;\.\#\|A-Z](?:[A-Za-z0-9!+\-=<>_,?.]*[A-Za-z0-9!+\-=<>_,?])?/
 
 // WHITESPACE
@@ -233,6 +234,14 @@ def parse(source: str, start='start', filename=None):
                 # Bare PARAMs become struct fields.
                 if isinstance(ch, lark.Token) and ch.type == 'PARAM':
                     fields.append(_param_entry(ch.value))
+                    continue
+                # Bracketed PARAMs represent list-valued fields with an inner element type.
+                if isinstance(ch, lark.Tree) and ch.data == 'list_param':
+                    param_tok = next((t for t in ch.children if isinstance(t, lark.Token) and t.type == 'PARAM'), None)
+                    if param_tok is None: continue
+                    inner = _param_entry(param_tok.value)
+                    # Encode as a list type while preserving field label and inner type metadata.
+                    fields.append({'label': inner['label'], 'type': 'list', 'quote': [inner], 'raw': None})
                     continue
                 # Stack-effect items become fields expecting a quotation; the effect metadata is attached.
                 if isinstance(ch, lark.Tree) and ch.data == 'stack_effect':
