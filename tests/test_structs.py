@@ -94,7 +94,11 @@ def test_struct_with_incorrect_field_type_raises_stack_error():
     rt = Runtime()
     rt.load(src, filename="<TEST>")
 
-    # First field is wrong type (str instead of int).
+    # First field a (left/bottom) is wrong type (str instead of int).
+    # Stack convention: a (left/bottom), b (right/top)
+    # Push "x" 2 → stack is "x" (bottom) ... 2 (top)
+    # Field a should validate against "x" (bottom) → ✗ FAIL (str, not int)
+    # Field b should validate against 2 (top) → ✓ PASS
     with pytest.raises(JoyStackError):
         rt.run('"x" 2 \'MyPair struct .', filename="<TEST>")
 
