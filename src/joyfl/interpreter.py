@@ -1,16 +1,14 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
 import sys
-import traceback
 import collections
 
 from typing import Any, TypeVar
 
 from .types import Operation, Stack, nil
 from .errors import JoyStackError
-from .parser import print_source_lines
 from .library import Library
-from .formatting import show_stack, show_program_and_stack, stack_to_list
+from .formatting import show_program_and_stack, stack_to_list
 
 
 def _operation_signature(op: Operation):

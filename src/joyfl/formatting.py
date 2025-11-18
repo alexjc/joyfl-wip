@@ -5,7 +5,7 @@ import re
 from .types import stack_list, Stack, nil
 
 
-def stack_to_list(stk: Stack) -> stack_list:
+def stack_to_list(stk: Stack | tuple) -> stack_list:
     # Accept the current stack passed as a (tail, head) tuple (e.g., wrappers that call fn(*stk)).
     if isinstance(stk, tuple) and not isinstance(stk, Stack):
         tail, head = stk
@@ -34,13 +34,13 @@ def write_without_ansi(write_fn):
 def _format_string(it):
     return '"' + it.encode('unicode_escape').decode('ascii').replace('"', '\\"') + '"'
 
-def _format_item(it, width=None, indent=0, abbreviate: bool = False):
+def format_item(it, width=None, indent=0, abbreviate: bool = False):
     if (is_stack := isinstance(it, stack_list)) or isinstance(it, list):
         if abbreviate and not is_stack:
             return f'≪list:{len(it)}≫'
         items = reversed(it) if is_stack else it
         lhs, rhs = ('<', '>') if is_stack else ('[', ']')
-        formatted_items = [_format_item(i, width, indent + 4, abbreviate=abbreviate) for i in items]
+        formatted_items = [format_item(i, width, indent + 4, abbreviate=abbreviate) for i in items]
         single_line = lhs + ' '.join(formatted_items) + rhs
         # If it fits on one line, use single line format.
         if width is None or len(single_line) + indent <= width: return single_line
@@ -57,27 +57,24 @@ def _format_item(it, width=None, indent=0, abbreviate: bool = False):
     if isinstance(it, bytes): return str(it)[1:-1]
     return str(it)
 
-def format_item(it, width=None, indent=0):
-    return _format_item(it, width=width, indent=indent, abbreviate=False)
-
 def show_stack(stack, width=72, end='\n', file=None, abbreviate: bool = False):
     if stack is nil:
         stack_str = '∅'
     else:
         items = stack_to_list(stack)
         # First render without abbreviation, check if it fits on screen.
-        stack_str = ' '.join(_format_item(s, width=width, abbreviate=False) for s in reversed(items))
+        stack_str = ' '.join(format_item(s, width=None, abbreviate=False) for s in reversed(items))
         # If abbreviation requested and the rendered output is long, re-render abbreviated.
         if abbreviate and len(stack_str) > 144:
-            stack_str = ' '.join(_format_item(s, width=None, abbreviate=True) for s in reversed(items))
+            stack_str = ' '.join(format_item(s, width=None, abbreviate=True) for s in reversed(items))
 
     if width is not None and len(stack_str) > width:
         stack_str = '… ' + stack_str[-width+2:]
     print(f"{stack_str:>{width}}" if width else stack_str, end=end, file=file)
 
 def show_program_and_stack(program, stack, width=72):
-    prog_str = ' '.join(format_item(p) for p in program) if program else '∅'
+    prog_str = ' '.join(format_item(p, abbreviate=False) for p in program) if program else '∅'
     if len(prog_str) > width:
         prog_str = prog_str[:+width-2] + ' …'
-    show_stack(stack, end='')
+    show_stack(stack, end='', abbreviate=False)
     print(f" \033[36m <=> \033[0m {prog_str:<{width}}")
