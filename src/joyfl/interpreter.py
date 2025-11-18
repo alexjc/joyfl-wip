@@ -63,6 +63,39 @@ def can_execute(op: Operation, stack: Stack) -> tuple[bool, str]:
     return True, ""
 
 
+def validate_stack_before(op: Operation, stack: Stack) -> None:
+    if (check := can_execute(op, stack)) and not check[0]:
+        raise JoyStackError(check[1], joy_op=op, joy_token=op.name, joy_stack=stack)
+
+def validate_stack_after(op: Operation, before_stack: Stack, after_stack: Stack) -> None:
+    """Validate that runtime stack depth and output types match declared stack effects."""
+    if (eff := _operation_signature(op)) is None: return
+
+    n_inputs, n_outputs = eff['arity'], eff['valency']
+    if n_outputs < 0: return
+
+    base_before = before_stack
+    for _ in range(n_inputs):
+        base_before, _ = base_before
+
+    base_after = after_stack
+    out_items: list[Any] = []
+    for i in range(n_outputs):
+        if base_after is base_before or base_after is nil:
+            raise JoyStackError(f"`{op.name}` produced fewer outputs than declared ({i} < {n_outputs}).", joy_op=op, joy_stack=after_stack)
+        base_after, head = base_after
+        out_items.append(head)
+
+    if base_after is not base_before:
+        raise JoyStackError(f"`{op.name}` stack effect does not match defined {n_inputs} inputs / {n_outputs} outputs.", joy_op=op, joy_stack=after_stack)
+
+    for i, (actual, expected_type) in enumerate(zip(out_items, eff['outputs'])):
+        if expected_type in (Any, None): continue
+        if not isinstance(actual, expected_type):
+            atn, etn = type(actual).__name__, expected_type.__name__
+            raise JoyStackError(f"`{op.name}` produced output {atn} but declared {etn} at position {i+1} from top.", joy_op=op, joy_stack=after_stack)
+
+
 def interpret_step(program, stack, lib: Library):
     op = program.popleft()
     if isinstance(op, bytes) and op in (b'ABORT', b'BREAK'):
@@ -95,23 +128,26 @@ def interpret(program: list, stack=None, lib: Library = None, verbosity=0, valid
 
     step = 0
     while program:
-        if validate and isinstance(program[0], Operation):
-            if (check := can_execute(program[0], stack)) and not check[0]:
-                raise JoyStackError(check[1], joy_op=program[0], joy_token=program[0].name, joy_stack=stack)
+        op = program[0]
+        if validate and isinstance(op, Operation):
+            validate_stack_before(op, stack)
 
-        if verbosity == 2 or (verbosity == 1 and (is_notable(program[0]) or step == 0)):
+        if verbosity == 2 or (verbosity == 1 and (is_notable(op) or step == 0)):
             print(f"\033[90m{step:>3} :\033[0m  ", end='')
             show_program_and_stack(program, stack)
 
         step += 1
         try:
-            op = program[0]
-            stack, program = interpret_step(program, stack, lib)
+            new_stack, program = interpret_step(program, stack, lib)
         except Exception as exc:
             exc.joy_op = op
             exc.joy_token = op.name
             exc.joy_stack = stack
             raise
+
+        if validate and isinstance(op, Operation) and op.type != Operation.EXECUTE:
+            validate_stack_after(op, stack, new_stack)
+        stack = new_stack
 
     if verbosity > 0:
         print(f"\033[90m{step:>3} :\033[0m  ", end='')
