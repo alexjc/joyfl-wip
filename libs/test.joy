@@ -1,0 +1,277 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+
+MODULE test
+
+PRIVATE
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Type Definitions
+
+    TestCase        :: desc:str code:list ;
+    FileTests       :: filename:str [tests:TestCase] ;
+    TestResult      :: desc:str flag:bool ;
+    FileResults     :: filename:str [results:TestResult] ;
+    Stats           :: pass:int fail:int ;
+    FinalStats      :: pass:int fail:int files:int ;
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Test Collection
+
+   (*  `collect-file-tests` — Loads .joy *test* file from source, containing a list of individual
+    *       test cases, and returns structured FileTest object.
+    *)
+    collect-file-tests              :   (filename:str -- tests:FileTests)
+        ==  dup os.exec-file!                       # load raw unstructured tests from source
+            [ uncons 'TestCase struct ]
+            :map                                    # wrap each one-by-one into a struct
+            'FileTests struct                       # combine with filename into struct
+        ;
+
+   (*  `collect-all-tests` — Discover all Joy test files and collect their structured tests.
+    *      Applies a filename callback before mapping each file into a `FileTests` value.
+    *      The discovery pattern may be overridden via `cmd.options` using the `--files=` flag.
+    *)
+    collect-all-tests           :   ([onfile] -- [files:FileTests])
+        ==  cmd.options                             # read command-line options (may include --files)
+            dup 'files swap member?                 # check for user-specified test file pattern
+            [ 'files swap dict-fetch ]              # use override from options
+            [ pop "tests/test_*.joy" ]              # fallback to default pattern
+            :branch
+            os.list-files!
+            swap
+            :map                                    # apply onfile to each discovered filename
+            [collect-file-tests] :map
+        ;
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Test Execution
+
+   (*  `run-one-test` — Execute a single `TestCase` and compute its logical result (desc, flag).
+    *      Pure business logic: no formatting or printing.
+    *)
+    run-one-test                    :   (testcase:TestCase -- desc flag)
+        ==  unstruct
+            i
+        ;
+
+   (*  `run-file-tests` — Execute all tests for a file and invoke a callback on each `TestResult`.
+    *      The callback may perform side-effects but must return a `TestResult`.
+    *)
+    run-file-tests              :   (filetests:FileTests [ontest] -- filer:FileResults)
+        ==  swap
+            unstruct                                # unpack filename and raw test list
+            [run-one-test 'TestResult struct] :map  # run tests, collect logical TestResults
+            rolldown
+            :map                                    # apply callback to each TestResult
+            'FileResults struct                     # repackage into a FileResults struct
+        ;
+
+   (*  `run-all-tests` — Execute tests across files, threading the per-test callback through.
+    *      Lifts `run-file-tests` to operate on a list of `FileTests`.
+    *)
+    run-all-tests               :   ([files:FileTests] [ontest] -- [results:FileResults])
+        ==  [run-file-tests]
+            cons                                    # integrate the ontest callback into quotation
+            :map
+        ;
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Report Building
+
+   (*  `tally-results` — Reduce a list of boolean flags into a `Stats` pass/fail summary.
+    *)
+    tally-results               :   ([flags:bool] -- stats:Stats)
+        ==  dup
+            [not] :filter size
+            swap
+            [id] :filter size
+            swap
+            'Stats struct
+        ;
+
+
+   (*  `extract-result-flags` — Extract boolean flags from a list of `TestResult` values.
+    *)
+    extract-result-flags        :   ([results:TestResult] -- [flags:bool])
+        ==  [unstruct swap pop] :map ;
+
+   (*  `compute-file-stats` — Summarise one `FileResults` into per-file `Stats` (no printing).
+    *  FileResults :: filename:str [results:TestResult]
+    *  TestResult  :: desc:str flag:bool
+    *)
+    compute-file-stats          :   (filer:FileResults -- stats:Stats)
+        ==  unstruct                        # unpack filename and per-test results
+            swap pop
+            extract-result-flags
+            tally-results ;
+
+   (*  `aggregate-final-stats` — Compute global `FinalStats` from per-file `Stats` list.
+    *      Sums pass/fail counts independently and uses list size for file count.
+    *)
+    aggregate-final-stats       :   ([stats:Stats] -- fstats:FinalStats)
+        ==  dup size                    # count how many files contributed stats
+            swap
+            dup
+            [ unstruct pop ] :map       # extract pass counts from each file
+            sum
+            swap
+            [ unstruct swap pop ] :map  # extract fail counts from each file
+            sum
+            rolldown
+            'FinalStats struct
+        ;
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Formatting & Display
+
+   (*  `print-final-summary` — Print the final coloured summary from `FinalStats`.
+    *)
+    print-final-summary         :   (fstats:FinalStats -- )
+        ==  unstruct
+            rollup
+            over over +
+            rollup
+            [] append append append append
+            "\n\n \033[32m%2 pass\033[0m\n \033[90m%1 fail\033[0m\n \033[37m%3 checks\033[0m\n\n\033[97mRan %3 tests across %4 files!\033[0m\n"
+            txt.format
+            put!
+        ;
+
+   (*  `format-test-result` — Format a single `TestResult` into a coloured, human-readable line.
+    *)
+    format-test-result          :   (result:TestResult -- line:str)
+        ==  unstruct
+            dup
+            rollup
+            "\033[32m ✓ \033[0m "
+            "\033[31m ✗ \033[0m "
+            choice
+            swap
+            str-concat
+            swap pop
+        ;
+
+
+   (*  `summarise-file-results` — Compute per-file lines and `Stats` from raw `FileResults`.
+    *      Returns filename, formatted lines, and per-file statistics.
+    *)
+    summarise-file-results      :   (filer:FileResults -- filename:str [lines:str] stats:Stats)
+        ==  unstruct
+            dup                                     # keep original TestResults for formatting
+            extract-result-flags                    # extract boolean flags from each TestResult
+            dup
+            tally-results                           # compute per-file pass/fail Stats
+            rolldown
+            [format-test-result] :map               # build human-readable lines from TestResults
+            swap
+            rollup
+            rollup
+            pop                                     # drop flags, keep filename, lines, stats
+        ;
+
+   (*  `print-file-report` — Display results for a file (consuming arguments).
+    *)
+    print-file-report           :   (filename:str [lines:str] stats:Stats -- )
+        ==  dup unstruct swap pop
+            0 equal?
+            "\033[42;30m PASS \033[0m "
+            "\033[41;30m FAIL \033[0m "
+            choice put!
+            rolldown rolldown
+            swap putln!
+            "\n" str-join put!
+        ;
+
+   (*  `print-file-core` — Per-file reporter used by `main` (side-effects only).
+    *)
+    print-file-core             :   (filer:FileResults -- )
+        ==  summarise-file-results       # filename [lines] stats
+            print-file-report           # (prints and consumes arguments)
+        ;
+
+PUBLIC
+
+    expect-equal            ==  equal? ;
+    expect-true             ==  ;
+
+   (*  `expect-raises` — Assert a quotation raises and matches an expected error type.
+    *)
+    expect-raises               :  ([q] expected -- )
+        ==  [exec!] :dip
+            swap                      # reorder to (expected, result)
+            not assert!               # ensure result == false (i.e. something was raised)
+            swap error-type swap equal?
+        ;
+
+   (*  `compute-final-statistics` — Compute `FinalStats` from raw per-file `FileResults`.
+    *)
+    compute-final-statistics    :   ([results:FileResults] -- fstats:FinalStats)
+        ==  [compute-file-stats] :map   # compute per-file statistics
+            aggregate-final-stats       # aggregate into final summary
+        ;
+
+   (*  `print-test-dot` — Per-test progress callback used by `main-quiet` (· / ×).
+    *)
+    print-test-dot              :   (result:TestResult -- result:TestResult)
+        ==  dup unstruct swap pop        # extract boolean flag from TestResult
+            dup [ "·" ] [ "×" ] branch put!
+            pop                          # discard flag, keep original result
+        ;
+
+   (*  `print-final-summary-quiet` — Minimal PASS/FAIL display from `FinalStats`.
+    *)
+    print-final-summary-quiet   :   (fstats:FinalStats -- )
+        ==  unstruct                   # unpack pass, fail, files
+            rolldown pop               # keep only fail count
+            swap pop
+            0 equal?                   # true when all tests passed
+            " \033[42;30m PASS \033[0m"
+            " \033[41;30m FAIL \033[0m"
+            choice
+            putln!
+        ;
+
+   (*  `run-main-quiet` — Alternate entry using compact dot/x display and final PASS/FAIL summary.
+    *      Returns the final `FinalStats` so that `main` can derive an exit code.
+    *)
+    run-main-quiet              :  ( -- fstats:FinalStats )
+        ==  [ "+" put! ] collect-all-tests
+            [ print-test-dot ] run-all-tests
+            compute-final-statistics
+            dup                             # keep copy of FinalStats for exit code
+            print-final-summary-quiet
+        ;
+
+   (*  `run-main-verbose` — Helper implementing the default verbose test run.
+    *      Returns the final `FinalStats` so that `main` can derive an exit code.
+    *)
+    run-main-verbose            :  ( -- fstats:FinalStats )
+        ==  [ id ] collect-all-tests        # discover and load all test files
+            [ id ] run-all-tests            # execute all tests, collect FileResults
+            dup                             # keep results for both detailed and summary reporting
+            [print-file-core] :map          # print per-file detailed reports
+            pop                             # discard print side-effects result, keep raw FileResults
+            compute-final-statistics
+            dup                             # keep copy of FinalStats for exit code
+            print-final-summary
+        ;
+
+   (*  `main` — Run the full test pipeline and exit with the number of failing tests.
+    *      Uses `cmd.options` to select quiet vs verbose mode via the `-q` flag.
+    *)
+    main                        :  ( -- )
+        ==  cmd.options
+            'q swap member?                 # detect presence of quiet flag
+            [ run-main-quiet ]              # then-branch: run quiet entry
+            [ run-main-verbose ]            # else-branch: run verbose entry
+            :branch                         # leaves FinalStats on stack
+            unstruct
+            swap pop
+            swap pop
+            cmd.exit!                       # exit with failure count as status code
+        ;
+
+END.
