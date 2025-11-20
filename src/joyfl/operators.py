@@ -4,12 +4,13 @@ import math
 from typing import Any, TypeVar
 from fractions import Fraction
 
-from .types import Stack, nil
+from .types import Stack
 from .errors import JoyAssertionError
 from .formatting import stack_to_list, list_to_stack, format_item
 
 
 num = int | float | Fraction
+symbol = bytes
 
 ## ARITHMETIC
 def op_add(b: num, a: num) -> num: return b + a
@@ -70,6 +71,9 @@ def op_stack_size(s: Stack) -> int: return len(stack_to_list(s))
 # INPUT/OUTPUT
 def op_id(x: Any) -> Any: return x
 def op_put_b(x: Any) -> None:
+    text = x if isinstance(x, str) else (format_item(x, width=120) + ' ')
+    print(text, end='', flush=True)
+def op_putln_b(x: Any) -> None:
     text = x if isinstance(x, str) else format_item(x, width=120)
     print('\033[97m' + text + '\033[0m')
 def op_assert_b(x: bool) -> None:
@@ -84,5 +88,13 @@ def op_str_join(b: list, a: str) -> str: return a.join(b)
 # DICTIONARIES (mutable)
 def op_dict_new() -> dict: return {}
 def op_dict_q(d: dict) -> bool: return isinstance(d, dict)
-def op_dict_store(d: dict, k: bytes, v: Any) -> dict: return d.__setitem__(k, v) or d
-def op_dict_fetch(d: dict, k: bytes) -> Any: return d[k]
+def op_dict_store(d: dict, k: symbol, v: Any) -> dict: return d.__setitem__(k, v) or d
+def op_dict_fetch(d: dict, k: symbol) -> Any: return d[k]
+# ERROR HANDLING
+def op_error_type(e: Exception) -> symbol: return e.__class__.__name__.encode('ascii')
+def op_error_message(e: Exception) -> str: return str(e)
+def op_error_data(e: Exception) -> Any:
+    data = {}
+    if hasattr(e, 'joy_op'): data['joy_op'] = getattr(e, 'joy_op')
+    if hasattr(e, 'joy_meta'): data['joy_meta'] = getattr(e, 'joy_meta')
+    return data

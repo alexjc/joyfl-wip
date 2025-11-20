@@ -122,11 +122,11 @@ def test_cli_run_file_subcommand_executes_program(tmp_path: Path):
 
 def test_cli_dev_mode_executes_mixed_inputs(tmp_path: Path):
     first = tmp_path / "first.joy"
-    first.write_text('"FIRST" put! .\n', encoding='utf-8')
+    first.write_text('"FIRST" putln! .\n', encoding='utf-8')
     second = tmp_path / "second.joy"
-    second.write_text('"THIRD" put! .\n', encoding='utf-8')
+    second.write_text('"THIRD" putln! .\n', encoding='utf-8')
 
-    result = run_cli(first, "-c", '"SECOND" put!', second)
+    result = run_cli(first, "-c", '"SECOND" putln!', second)
 
     assert result.returncode == 0
     assert _strip_output_lines(result.stdout) == ["FIRST", "SECOND", "THIRD"]
