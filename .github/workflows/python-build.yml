@@ -39,5 +39,8 @@ jobs:
       - name: Build
         run: uv build
 
-      - name: Test
+      - name: Test Python
         run: uv run pytest
+
+      - name: Test Joy
+        run: uv run joyfl --plain test

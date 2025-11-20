@@ -276,8 +276,7 @@ PUBLIC
             [ run-main-verbose ]            # else-branch: run verbose entry
             :branch                         # leaves FinalStats on stack
             unstruct
-            swap pop
-            swap pop
+            pop swap pop                    # discord file count and successes
             cmd.exit!                       # exit with failure count as status code
         ;
 

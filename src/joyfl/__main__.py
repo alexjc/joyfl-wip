@@ -42,6 +42,10 @@ class JoyRunner:
         self.stats_enabled = config.stats
         self.plain = config.plain
 
+        if sys.platform == "win32":
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
         if self.plain:
             writer = write_without_ansi(sys.stdout.write)
             sys.stdout.write, sys.stderr.write = writer, writer
