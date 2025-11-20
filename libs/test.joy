@@ -23,7 +23,10 @@ PRIVATE
     *)
     collect-file-tests              :   (filename:str -- tests:FileTests)
         ==  dup os.exec-file!                       # load raw unstructured tests from source
-            [ uncons 'TestCase struct ]
+            [   uncons swap unit i
+                'TEST-CASE equal? assert!
+                uncons 'TestCase struct
+            ]
             :map                                    # wrap each one-by-one into a struct
             'FileTests struct                       # combine with filename into struct
         ;
@@ -193,6 +196,10 @@ PRIVATE
         ;
 
 PUBLIC
+
+    (*  `describe` — Marker inserted in front of a list to indicate a test case.
+    *)
+    describe                ==  'TEST-CASE ;
 
     expect-equal            ==  equal? ;
     expect-true             ==  ;
