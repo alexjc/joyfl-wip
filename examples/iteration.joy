@@ -23,4 +23,4 @@ END.
 # 727023333331 prime? assert! .
 # 755190546289 prime? not assert! .
 
-"Tested `prime?` and `prime? not`... OK" put! .
+"Tested `prime?` and `prime? not`... OK" putln! .
