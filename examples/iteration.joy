@@ -4,7 +4,7 @@
 #
 
 DEFINE
-    greater-than-squared?   ==  dup dup * rolldown dup rolldown > ;
+    greater-than-squared?   ==  dup dup mul rolldown dup rolldown > ;
     remainder-above-zero?   ==  dupd dup rollup rem 0 > ;
 
     prime?                  ==  2                                           # accumulator integer to count upwards

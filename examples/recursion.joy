@@ -7,24 +7,25 @@
 #
 
 DEFINE
-    r-factorial     ==  [0 =]  [pop 1] [dup 1 - r-factorial *] ifte ;
-    a-factorial     ==  [null?] [succ]  [dup pred [a-factorial] app1 *] ifte ;
+    r-factorial     ==  [0 =]  [pop 1] [dup 1 - r-factorial *] :ifte ;
+    a-factorial     ==  [null?] [succ]  [dup pred [a-factorial] app1 *] :ifte ;
 
-    i-factorial     ==  [   [pop 0 =]                       # This 4-line block computes the actual factorial.
-                            [pop pop 1]
-                            [[dup 1 -] dip i *]
-                            ifte
+    i-factorial     ==  [   [ pop 0 = ]                         # This 4-line block computes the actual factorial.
+                            [ pop pop 1 ]
+                            [ [dup 1 -] dip i * ]
+                            :ifte
                         ]
-                        [dup cons] swap concat dup cons     # This part assembles a recursive program.
+                        [dup cons] swap concat dup cons         # This part assembles a recursive program.
                         i ;
 
-    l-factorial     ==  [null?] [succ] [dup pred] [*] linrec ;
+    l-factorial     ==  [null?] [succ] [dup pred] [*] :linrec ;
 
     x-factorial     ==  [   [ pop null? ]
                             [ pop pop 1]
-                            [ [dup pred] dip x *]
-                            ifte ]
-                        x ;
+                            [ [dup pred] dip x * ]
+                            :ifte
+                        ]
+                        :x ;
 END.
 
 15 r-factorial
@@ -46,8 +47,8 @@ END.
 
 
 DEFINE
-    r-fib1          ==  [small?] [] [pred dup [r-fib1] dip pred r-fib1 +] ifte ;
-    r-fib2          ==  [small?] [] [pred dup pred [r-fib2] app2 +] ifte ;
+    r-fib1          ==  [small?] [] [pred dup [r-fib1] :dip pred r-fib1 +] :ifte ;
+    r-fib2          ==  [small?] [] [pred dup pred [r-fib2] app2 +] :ifte ;
 END.
 
 14 r-fib1
@@ -63,19 +64,19 @@ DEFINE
     r-mcc91         ==  [ 100 > ]
                         [ 10 - ]
                         [ 11 + r-mcc91 r-mcc91 ]
-                        ifte ;
+                        :ifte ;
 
     l-mcc91         ==  [ 100 > ]
                         [ 10 - ]
                         [ 11 + ]
                         [ l-mcc91 ]
-                        linrec ;
+                        :linrec ;
 END.
 
-[ -7 42 99 100 101 102 345 ] [r-mcc91] map
+[ -7 42 99 100 101 102 345 ] [r-mcc91] :map
     [91 91 91 91 91 92 335] equal? assert! .
 
-[ -7 42 99 100 101 102 345 ] [l-mcc91] map
+[ -7 42 99 100 101 102 345 ] [l-mcc91] :map
     [91 91 91 91 91 92 335] equal? assert! .
 
 "Tested `r-mcc91` and `l-mcc91`... OK" putln! .
