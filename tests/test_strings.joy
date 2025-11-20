@@ -1,0 +1,58 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+
+[
+    [   test.describe "concatenating two strings should work"
+
+            "hello" " world" str-concat
+            "hello world"
+        expect-equal
+    ]
+
+    [   test.describe "string matching should find substring"
+
+            "world" "hello world" str-contains?
+        expect-true
+    ]
+
+    [   test.describe "format inserts list values"
+
+            [1 2] "%1-%2" txt.format
+            "1-2"
+        expect-equal
+    ]
+
+    [   test.describe "format escapes percent"
+
+            [] "%% done" txt.format
+            "% done"
+        expect-equal
+    ]
+
+    [   test.describe "format out-of-range placeholder raises"
+
+            [ [1] "%2" txt.format ]
+            'JoyValueError
+        expect-raises
+    ]
+
+    [   test.describe "format invalid placeholder raises"
+
+            [ [] "%a" txt.format ]
+            'JoyValueError
+        expect-raises
+    ]
+
+    [   test.describe "format out-of-range placeholder raises"
+        
+            [ [1] "%2" txt.format ]
+            'JoyValueError
+        expect-raises
+    ]
+
+    [   test.describe "format invalid placeholder raises"
+
+            [ [] "%a" txt.format ]
+            'JoyValueError
+        expect-raises
+    ]
+].
