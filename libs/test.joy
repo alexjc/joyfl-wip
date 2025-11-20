@@ -232,8 +232,7 @@ PUBLIC
     *)
     print-final-summary-quiet   :   (fstats:FinalStats -- )
         ==  unstruct                   # unpack pass, fail, files
-            rolldown pop               # keep only fail count
-            swap pop
+            pop swap pop
             0 equal?                   # true when all tests passed
             " \033[42;30m PASS \033[0m"
             " \033[41;30m FAIL \033[0m"
