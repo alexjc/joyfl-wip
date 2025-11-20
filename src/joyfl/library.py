@@ -35,29 +35,37 @@ class Library:
         for _, fn in list(self.functions.items()):
             assert hasattr(fn, '__joy_meta__')
 
+    def _maybe_load_py_module(self, resolved_name: str, meta: dict | None) -> None:
+        if '.' not in resolved_name or self.py_module_loader is None:
+            return
+        ns, op = resolved_name.split('.', 1)
+        if ns not in self.loaded_modules:
+            # Load and register all operators/factories from the Python module at once.
+            self.py_module_loader(self, ns, op, meta)
+
     def get_quotation(self, name: str, *, meta: dict | None = None) -> Quotation | None:
         resolved_name = self.aliases.get(name, name)
         if '.' in resolved_name and self.joy_module_loader is not None:
             if (ns := resolved_name.split('.', 1)[0]) not in self.loaded_modules:
                 self.joy_module_loader(self, ns, meta)
-        if (q := self.quotations.get(resolved_name)) and q.visibility != "private":
-            return q
+        if (quot := self.quotations.get(resolved_name)) and quot.visibility != "private":
+            return quot
         return None
 
     def get_function(self, name: str, *, meta: dict | None = None) -> Callable[..., Any]:
         resolved_name = self.aliases.get(name, name)
-        if (fn := self.functions.get(resolved_name)) is not None:
-            return fn
-        if '.' in resolved_name and self.py_module_loader is not None:
-            ns, op = resolved_name.split('.', 1)
-            if ns not in self.loaded_modules:
-                # Load and register all operators from the Python module at once.
-                self.py_module_loader(self, ns, op, meta)
-            if (fn := self.functions.get(resolved_name)) is not None:
-                return fn
+        self._maybe_load_py_module(resolved_name, meta)
+        if (function := self.functions.get(resolved_name)) is not None:
+            return function
         raise JoyNameError(f"Operation `{name}` not found in library.", joy_token=name, joy_meta=meta)
 
-    # Views / overlays
+    def get_factory(self, name: str, *, meta: dict | None = None, joy_token: str) -> Callable[[], Any]:
+        resolved_name = self.aliases.get(name, name)
+        self._maybe_load_py_module(resolved_name, meta)
+        if (factory := self.factories.get(resolved_name)) is not None:
+            return factory
+        raise JoyNameError(f"Unknown factory `{joy_token}`.", joy_token=joy_token, joy_meta=meta)
+
     def with_overlay(self) -> "Library":
         """Create new view sharing all structure with this one, except for an overlaid `quotations` mapping."""
         overlay_quotations = ChainMap({}, self.quotations)

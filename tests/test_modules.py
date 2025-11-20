@@ -2,6 +2,7 @@
 
 import pytest
 
+import joyfl.api as J
 from joyfl.errors import JoyModuleError, JoyNameError
 from joyfl.loader import iter_module_operators, _LIB_MODULES
 from joyfl.runtime import Runtime
@@ -54,3 +55,34 @@ def test_missing_operation_raises_name_error(tmp_path, monkeypatch):
 
     assert "not found in library" in str(e.value).lower()
     assert e.value.joy_token == "ok.absent"
+
+
+def test_get_function_triggers_python_module_loading(tmp_path, monkeypatch):
+    # Define a Python module with a single Joy operator `present`.
+    _write(tmp_path, "ok",
+        "def op_present(x: int) -> int: return x\n"
+        "__operators__ = [op_present]\n")
+    _setup_env(monkeypatch, tmp_path)
+
+    rt = Runtime()
+    fn = rt.library.get_function("ok.present", meta={"filename": "<test>"})
+    # The function should be registered under the fully-qualified Joy name.
+    assert "ok.present" in rt.library.functions
+    assert rt.library.functions["ok.present"] is fn
+
+
+def test_python_module_registers_factory_via_api_and_is_auto_loaded(tmp_path, monkeypatch):
+    # Python module imports the public API and registers a namespaced factory.
+    module_source = (
+        "import joyfl.api as J\n"
+        "def op_dummy(x: int) -> int: return x\n"
+        "J.register_factory('ok.answer', lambda: {'answer': 42})\n"
+        "__operators__ = [op_dummy]\n"
+    )
+    _write(tmp_path, "ok", module_source)
+    _setup_env(monkeypatch, tmp_path)
+
+    # First use of the factory name should trigger Python module loading.
+    stack = J.run("@ok.answer .", filename="<USE>")
+    top = J.from_stack(stack)[0]
+    assert isinstance(top, dict) and top["answer"] == 42

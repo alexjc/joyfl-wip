@@ -38,8 +38,7 @@ def link_body(tokens: list, meta: dict, lib: Library):
         elif token in lib.constants:
             output.append(lib.constants[token])
         elif (name := token.lstrip('@')) in lib.factories or token.startswith('@'):
-            if not (factory := lib.factories.get(name)):
-                raise JoyNameError(f"Unknown factory `{token}`.", joy_op=token, joy_meta=meta)
+            factory = lib.get_factory(name, meta=mt, joy_token=token)
             output.append(factory())
         elif (q := lib.get_quotation(token, meta=mt)) is not None:
             mt['body'] = q.meta
