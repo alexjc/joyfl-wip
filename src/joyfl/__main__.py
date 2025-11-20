@@ -254,8 +254,12 @@ def run_module(ctx: click.Context, name: str) -> None:
         module_name, module_term = name, 'main'
 
     # Trigger joy_module_loader for `<module_name>` by resolving the entry quotation.
-    lib = runner.runtime.library
-    _ = lib.get_quotation(f"{module_name}.{module_term}", meta={'filename': f'<MOD:{module_name}.{module_term}>', 'lines': (0, 0)})
+    try:
+        lib = runner.runtime.library
+        _ = lib.get_quotation(f"{module_name}.{module_term}", meta={'filename': f'<MOD:{module_name}.{module_term}>', 'lines': (0, 0)})
+    except (JoyError, Exception) as exc:
+        runner._handle_exception(exc, f'<MOD:{module_name}.{module_term}>', '', is_repl=False)
+        ctx.exit(runner.finalize())
 
     # Expose module PUBLIC words as dotted and bare aliases without overriding existing names.
     for qname, q in list(lib.quotations.items()):

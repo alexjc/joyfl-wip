@@ -198,4 +198,4 @@ def test_cli_run_mod_nested_linker_error_reports_correct_token(tmp_path: Path):
     result = run_cli("-m", "mymod", env={"JOY_PATH": str(mod_dir)})
     out = result.stdout
     assert result.returncode != 0
-    assert "Operation `totally-unknown-word` not found in library." in out
+    assert "Term `totally-unknown-word` from `<MOD:mymod.main>` was not found in library!" in out
