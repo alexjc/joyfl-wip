@@ -197,8 +197,8 @@ PRIVATE
    (*  `print-file-core` — Per-file reporter used by `main` (side-effects only).
     *)
     print-file-core             :   (filer:FileResults -- )
-        ==  summarise-file-results       # filename [lines] stats
-            print-file-report           # (prints and consumes arguments)
+        ==  summarise-file-results          # filename [lines] stats
+            print-file-report               # (prints and consumes arguments)
         ;
 
 PUBLIC
@@ -212,41 +212,44 @@ PUBLIC
     *)
     expect-equal            ==  equal? assert! ;
 
-   (*  `expect-true` — Assert that the top stack item is logically true.
+   (*  `expect-true` and `expect-false` — Assert that the top stack item is thruthy / falsy.
     *      Consumes the flag and raises `JoyAssertionError` when false.
     *)
     expect-true             ==  assert! ;
+    expect-false            ==  not assert! ;
 
    (*  `expect-raises` — Assert a quotation raises and matches an expected error type.
     *)
     expect-raises               :  ([q] expected -- )
         ==  [exec!] :dip
-            swap                      # reorder to (expected, result)
-            not assert!               # ensure result == false (i.e. something was raised)
+            swap                            # reorder to (expected, result)
+            not assert!                     # ensure result == false (i.e. something was raised)
             swap error-type swap equal?
         ;
 
    (*  `compute-final-statistics` — Compute `FinalStats` from raw per-file `FileResults`.
     *)
     compute-final-statistics    :   ([results:FileResults] -- fstats:FinalStats)
-        ==  [compute-file-stats] :map   # compute per-file statistics
-            aggregate-final-stats       # aggregate into final summary
+        ==  [compute-file-stats] :map       # compute per-file statistics
+            aggregate-final-stats           # aggregate into final summary
         ;
 
    (*  `print-test-dot` — Per-test progress callback used by `main-quiet` (· / ×).
     *)
     print-test-dot              :   (result:TestResult -- result:TestResult)
-        ==  dup unstruct swap pop        # extract boolean flag from TestResult
-            dup [ "·" ] [ "×" ] branch put!
-            pop                          # discard flag, keep original result
+        ==  dup unstruct swap pop           # extract boolean flag from TestResult
+            dup [ "·" ] [ "\033[41;30m×\033[0m" ] branch put!
+            pop                             # discard flag, keep original result
         ;
 
    (*  `print-final-summary-quiet` — Minimal PASS/FAIL display from `FinalStats`.
     *)
     print-final-summary-quiet   :   (fstats:FinalStats -- )
-        ==  unstruct                   # unpack pass, fail, files
-            pop swap pop
-            0 equal?                   # true when all tests passed
+        ==  unstruct                        # unpack pass, fail, files
+            pop over over add
+            unit " [%1]" txt.format put!
+            swap pop
+            0 equal?                        # true when all tests passed
             " \033[42;30m PASS \033[0m"
             " \033[41;30m FAIL \033[0m"
             choice
@@ -258,6 +261,7 @@ PUBLIC
     *)
     run-main-quiet              :  ( -- fstats:FinalStats )
         ==  [ "+" put! ] collect-all-tests
+            " " put!
             [ print-test-dot ] run-all-tests
             compute-final-statistics
             dup                             # keep copy of FinalStats for exit code
