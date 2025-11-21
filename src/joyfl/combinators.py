@@ -66,7 +66,7 @@ def comb_exec_b(_, queue, tail: Stack, head: list|tuple, lib):
     assert isinstance(head, (list, tuple))
     is_ok, result = False, nil
     try:
-        result_stack = interpret(head, stack=None, lib=lib)
+        result_stack = interpret(head, stack=None, lib=lib, validate=True)
         is_ok, result = True, stack_to_list(result_stack)
     except JoyError as exc:
         result = exc

@@ -22,7 +22,7 @@ from . import api
 @dataclass(frozen=True)
 class RuntimeConfig:
     verbose: int
-    validate: bool
+    unsafe: bool
     ignore: bool
     stats: bool
     plain: bool
@@ -37,7 +37,7 @@ class ExecutionItem:
 class JoyRunner:
     def __init__(self, config: RuntimeConfig):
         self.verbose = config.verbose
-        self.validate = config.validate
+        self.validate = not config.unsafe
         self.ignore = config.ignore
         self.stats_enabled = config.stats
         self.plain = config.plain
@@ -220,14 +220,14 @@ def _parse_dev_tokens(tokens: list[str]) -> list[tuple[str, Path | str | None]]:
 
 @click.group(invoke_without_command=True, context_settings={'ignore_unknown_options': True, 'allow_extra_args': True})
 @click.option('--verbose', '-v', default=0, count=True, help='Enable verbose interpreter execution.')
-@click.option('--validate', is_flag=True, help='Enable type and stack validation before each operation.')
+@click.option('--unsafe', is_flag=True, help='Enable type and stack validation before each operation.')
 @click.option('--ignore', '-i', is_flag=True, help='Ignore errors and continue executing.')
 @click.option('--stats', is_flag=True, help='Display execution statistics (e.g., number of steps).')
 @click.option('--plain', '-p', is_flag=True, help='Strip ANSI color codes and redirect stderr to stdout.')
 @click.pass_context
-def cli(ctx: click.Context, verbose: int, validate: bool, ignore: bool, stats: bool, plain: bool) -> None:
+def cli(ctx: click.Context, verbose: int, unsafe: bool, ignore: bool, stats: bool, plain: bool) -> None:
     ctx.ensure_object(dict)
-    ctx.obj['config'] = RuntimeConfig(verbose=verbose, validate=validate, ignore=ignore, stats=stats, plain=plain)
+    ctx.obj['config'] = RuntimeConfig(verbose=verbose, unsafe=unsafe, ignore=ignore, stats=stats, plain=plain)
 
     if ctx.invoked_subcommand is not None:
         return
@@ -312,7 +312,7 @@ def run_repl(ctx: click.Context) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     a = list(sys.argv[1:] if argv is None else argv)
-    g = [t for t in a if t in ('--validate','--ignore','--stats','--plain','-i','-p') or t.startswith('-v')]
+    g = [t for t in a if t in ('--unsafe','--ignore','--stats','--plain','-i','-p') or t.startswith('-v')]
     r = [t for t in a if t not in g]
     pos = [t for t in r if not t.startswith('-')]
     has_dev_opt = any(t in ('-c', '-r', '--repl') or t.startswith('--command') for t in r)
