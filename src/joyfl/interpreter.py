@@ -111,7 +111,7 @@ def interpret_step(program, stack, lib: Library):
         case Operation.FUNCTION:
             stack = op.ptr(stack)
         case Operation.COMBINATOR:
-            stack = op.ptr(op, program, *stack, lib=lib)
+            stack = op.ptr(op, program, stack, lib=lib)
         case Operation.EXECUTE:
             program.extendleft(reversed(op.ptr))
 

@@ -9,17 +9,21 @@ from .formatting import show_stack, stack_to_list
 from .interpreter import interpret
 
 
-def comb_i(_, queue, tail, head, lib):
+def comb_i(this: Operation, queue, stack: Stack, lib):
     """Takes a program as quotation on the top of the stack, and puts it into the queue for execution."""
-    assert isinstance(head, (list, tuple))
+    if stack is nil:
+        raise JoyStackError("`i` needs a quotation on the stack.", joy_op=this)
+    tail, head = stack
+    if not isinstance(head, (list, tuple)):
+        raise JoyStackError("`i` requires a quotation as list as top item on the stack.", joy_op=this)
     queue.extendleft(reversed(head))
     return tail
 
-def comb_dip(this: Operation, queue, *stack, lib):
+def comb_dip(this: Operation, queue, stack: Stack, lib):
     """Schedules a program for execution like `i`, but removes the second top-most item from the stack too
     and then restores it after the program is done.  This is like running `i` one level lower in the stack.
     """
-    if len(stack) != 2 or stack[0] is nil:
+    if stack is nil or stack.tail is nil:
         raise JoyStackError("`dip` needs at least 2 items on the stack.", joy_op=this)
 
     base, quotation = stack
@@ -31,18 +35,26 @@ def comb_dip(this: Operation, queue, *stack, lib):
     queue.extendleft(reversed(quotation))
     return tail
 
-def comb_step(this: Operation, queue, *stack, lib):
+def comb_step(this: Operation, queue, stack: Stack, lib):
     """Applies a program to every item in a list in a recursive fashion.  `step` expands into another
     quotation that includes itself to run on the rest of the list, after the program was applied to the
     head of the list.
     """
+    if stack is nil or stack.tail is nil:
+        raise JoyStackError("`step` needs a list and quotation on the stack.", joy_op=this)
+
     (tail, values), program = stack
-    assert isinstance(program, list) and isinstance(values, list)
+
+    if not isinstance(values, list):
+        raise JoyStackError("`step` expects a list as second item on the stack.", joy_op=this)
+    if not isinstance(program, (list, tuple)):
+        raise JoyStackError("`step` expects a quotation as top item on the stack.", joy_op=this)
     if len(values) == 0: return tail
+
     queue.extendleft(reversed([values[0]] + program + [values[1:], program, this]))
     return tail
 
-def comb_cont(this: Operation, queue, *stack, lib):
+def comb_cont(this: Operation, queue, stack: Stack, lib):
     from .linker import link_body
 
     print(f"\033[97m  ~ :\033[0m  ", end=''); show_stack(stack, width=72, end='')
@@ -62,13 +74,19 @@ def comb_cont(this: Operation, queue, *stack, lib):
         queue.extendleft(reversed(program + [this]))
     return stack
 
-def comb_exec_b(_, queue, tail: Stack, head: list|tuple, lib):
+def comb_exec_b(this: Operation, queue, stack: Stack, lib):
     """Evaluate a quotation on a fresh stack and capture outcome, returning either
     the entire stack or the error object, below a flag indicating success.
 
-    :: ([quot] -- result ok:bool)
+    : ([quot] -- result ok:bool)
     """
-    assert isinstance(head, (list, tuple))
+    if stack is nil:
+        raise JoyStackError("`exec!` needs a quotation on the stack.", joy_op=this)
+
+    tail, head = stack
+    if not isinstance(head, (list, tuple)):
+        raise JoyStackError("`exec!` requires a quotation as list as top item on the stack.", joy_op=this)
+
     is_ok, result = False, nil
     try:
         result_stack = interpret(head, stack=None, lib=lib, validate=True)
@@ -85,15 +103,18 @@ def _get_expected_python_type_for_field(field: dict):
     type_name = (field.get("type") or "").lower()
     return TYPE_NAME_MAP.get(type_name, object)
 
-def comb_struct(this: Operation, queue, *stack, lib):
+def comb_struct(this: Operation, queue, stack: Stack, lib):
     """Construct a StructInstance from N field values and a type symbol on the stack.
-    
+
     Stack convention:
         - left field (first in typedef) = bottom of stack
         - right field (last in typedef) = top of stack
 
     e.g. MyPair :: a b  →  push a then b  →  'MyPair struct
     """
+
+    if stack is nil:
+        raise JoyStackError("`struct` expects 'TypeName literal as top of stack.", joy_op=this)
 
     base, type_symbol = stack
     if not isinstance(type_symbol, bytes):
@@ -120,8 +141,11 @@ def comb_struct(this: Operation, queue, *stack, lib):
     return Stack(current, instance)
 
 
-def comb_unstruct(this: Operation, queue, *stack, lib):
+def comb_unstruct(this: Operation, queue, stack: Stack, lib):
     """Explode a StructInstance back into its fields on the stack."""
+
+    if stack is nil:
+        raise JoyStackError("`unstruct` expects a StructInstance value on top of the stack.", joy_op=this)
 
     base, top = stack
     if not isinstance(top, StructInstance):
