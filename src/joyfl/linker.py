@@ -49,7 +49,7 @@ def link_body(tokens: list, meta: dict, lib: Library):
             output.append(ast.literal_eval(token))
         elif token.startswith("'"):
             output.append(bytes(token[1:], encoding='utf-8'))
-        elif '⁄' in token[1:-1] and all(ch.isdigit() or ch == '⁄' for ch in token):
+        elif '⁄' in token[1:-1] and all(ch.isdigit() or ch == '⁄' for ch in token.lstrip('-')):
             output.append(Fraction(*map(int, token.split('⁄'))))
         elif token.isdigit() or token[0] == '-' and token[1:].isdigit():
             output.append(int(token))
