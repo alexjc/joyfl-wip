@@ -31,7 +31,7 @@ def can_execute(op: Operation, stack: Stack) -> tuple[bool, str]:
         return True, ""
 
     # Division by zero guard for division, as binary int/float op.
-    if op.name in ('div', '/') and stack is not nil:
+    if op.name in ('div', '/', 'rem') and stack is not nil:
         _, head = stack
         if head == 0:
             return False, f"`{op.name}` would divide by zero and cause a runtime exception."
