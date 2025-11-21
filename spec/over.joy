@@ -1,0 +1,41 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   duplicate the second-from-top stack item while preserving the rest of the stack
+#   category:   stack-operation
+#   signature:  x:any y:any -- x:any y:any x:any
+#   source:     stdlib (libs/stdlib.joy)
+#
+[
+    [   test.describe "over duplicates second-from-top item"
+
+            1 2
+            over
+            1 expect-equal
+            2 expect-equal
+            1 expect-equal
+    ]
+
+    [   test.describe "over preserves items below"
+
+            0 1 2
+            over
+            1 expect-equal
+            2 expect-equal
+            1 expect-equal
+            0 expect-equal
+    ]
+
+    [   test.describe "over on empty stack raises JoyStackError"
+
+        [ over ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "over with single item raises JoyStackError"
+
+        [ 1 over ]
+        'JoyStackError
+        expect-raises
+    ]
+].

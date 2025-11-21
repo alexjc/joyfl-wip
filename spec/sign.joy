@@ -1,0 +1,55 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   compute the sign of a numeric value as -1, 0, or 1
+#   category:   arithmetic
+#   signature:  x:num -- s:int
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "sign works on integer values"
+
+            -5
+            sign
+            -1 expect-equal
+
+            0
+            sign
+            0 expect-equal
+
+            7
+            sign
+            1 expect-equal
+    ]
+
+    [   test.describe "sign works on float values"
+
+            -0.5
+            sign
+            -1 expect-equal
+
+            0.0
+            sign
+            0 expect-equal
+
+            2.5
+            sign
+            1 expect-equal
+    ]
+
+    [   test.describe "sign works on fraction values"
+
+            -1⁄2
+            sign
+            -1 expect-equal
+
+            0⁄1
+            sign
+            0 expect-equal
+
+            3⁄4
+            sign
+            1 expect-equal
+    ]
+].
+
+

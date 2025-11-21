@@ -1,0 +1,41 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   subtract the top numeric value from the one below for ints, floats, and fractions
+#   category:   arithmetic
+#   signature:  x:num y:num -- z:num
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "sub works on integers"
+
+            1 2
+            sub
+            -1 expect-equal
+
+            5 3
+            sub
+            2 expect-equal
+    ]
+
+    [   test.describe "sub works on floats"
+
+            1.0 0.25
+            sub
+            0.75 expect-equal
+
+            -1.5 0.5
+            sub
+            -2.0 expect-equal
+    ]
+
+    [   test.describe "sub works on fractions"
+
+            1⁄2 1⁄3
+            sub
+            1⁄6 expect-equal
+
+            1⁄2 1⁄2
+            sub
+            0 expect-equal
+    ]
+].

@@ -1,0 +1,37 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   compute the remainder of dividing the second-from-top integer by the top integer
+#   category:   arithmetic
+#   signature:  x:int y:int -- z:int
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "rem works on positive integers"
+
+            5 2
+            rem
+            1 expect-equal
+
+            10 5
+            rem
+            0 expect-equal
+    ]
+
+    [   test.describe "rem works with negative integers"
+
+            -5 2
+            rem
+            1 expect-equal
+
+            5 -2
+            rem
+            -1 expect-equal
+    ]
+
+    [   test.describe "rem by zero is rejected"
+
+        [ 1 0 rem ]
+        'JoyStackError
+        expect-raises
+    ]
+].

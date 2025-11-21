@@ -1,0 +1,41 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   compute the maximum of two numeric values
+#   category:   arithmetic
+#   signature:  x:num y:num -- z:num
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "max works on integers"
+
+            1 2
+            max
+            2 expect-equal
+
+            -3 0
+            max
+            0 expect-equal
+    ]
+
+    [   test.describe "max works on floats"
+
+            1.0 2.5
+            max
+            2.5 expect-equal
+
+            -1.5 -2.0
+            max
+            -1.5 expect-equal
+    ]
+
+    [   test.describe "max works on fractions"
+
+            1⁄2 1⁄3
+            max
+            1⁄2 expect-equal
+
+            -1⁄2 1⁄4
+            max
+            1⁄4 expect-equal
+    ]
+].

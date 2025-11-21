@@ -1,0 +1,41 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   compute the minimum of two numeric values
+#   category:   arithmetic
+#   signature:  x:num y:num -- z:num
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "min works on integers"
+
+            1 2
+            min
+            1 expect-equal
+
+            -3 0
+            min
+            -3 expect-equal
+    ]
+
+    [   test.describe "min works on floats"
+
+            1.0 2.5
+            min
+            1.0 expect-equal
+
+            -1.5 -2.0
+            min
+            -2.0 expect-equal
+    ]
+
+    [   test.describe "min works on fractions"
+
+            1⁄2 1⁄3
+            min
+            1⁄3 expect-equal
+
+            -1⁄2 1⁄4
+            min
+            -1⁄2 expect-equal
+    ]
+].

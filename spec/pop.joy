@@ -1,0 +1,30 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   remove the top stack item while preserving all items below
+#   category:   stack-operation
+#   signature:  x:any -- 
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "pop removes top value"
+
+        1 2
+        pop
+        1 expect-equal
+    ]
+
+    [   test.describe "pop preserves items below"
+
+        1 2 3
+        pop
+        2 expect-equal
+        1 expect-equal
+    ]
+
+    [   test.describe "pop on empty stack raises JoyStackError"
+
+        [ pop ]
+        'JoyStackError
+        expect-raises
+    ]
+].

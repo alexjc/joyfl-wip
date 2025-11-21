@@ -1,0 +1,37 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   remove the item just below the top of the stack while preserving the rest
+#   category:   stack-operation
+#   signature:  x:any y:any z:any -- x:any z:any
+#   source:     stdlib (libs/stdlib.joy)
+#
+[
+    [   test.describe "popd removes item below top and preserves top"
+
+            1 2 3 popd
+            3 expect-equal
+            1 expect-equal
+    ]
+
+    [   test.describe "popd preserves deeper items"
+
+            10 20 30 40 popd
+            40 expect-equal
+            20 expect-equal
+            10 expect-equal
+    ]
+
+    [   test.describe "popd on empty stack raises JoyStackError"
+
+            [ popd ]
+            'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "popd with single item raises JoyStackError"
+
+            [ 1 popd ]
+            'JoyStackError
+        expect-raises
+    ]
+].

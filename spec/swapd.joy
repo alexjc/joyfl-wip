@@ -1,0 +1,41 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   swap the two items just below the top of the stack while preserving the top
+#   category:   stack-operation
+#   signature:  x:any y:any z:any -- y:any x:any z:any
+#   source:     stdlib (libs/stdlib.joy)
+#
+[
+    [   test.describe "swapd swaps two items below top and preserves top"
+
+            1 2 3
+            swapd
+            3 expect-equal
+            1 expect-equal
+            2 expect-equal
+    ]
+
+    [   test.describe "swapd preserves deeper items"
+
+            0 1 2 3
+            swapd
+            3 expect-equal
+            1 expect-equal
+            2 expect-equal
+            0 expect-equal
+    ]
+
+    [   test.describe "swapd with too few items raises JoyStackError"
+
+        [ 1 2 swapd ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "swapd on empty stack raises JoyStackError"
+
+        [ swapd ]
+        'JoyStackError
+        expect-raises
+    ]
+].

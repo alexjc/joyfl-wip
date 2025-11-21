@@ -1,0 +1,41 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   take the absolute value of a numeric input for ints, floats, and fractions
+#   category:   arithmetic
+#   signature:  x:num -- y:num
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "abs works on integers"
+
+            -1
+            abs
+            1 expect-equal
+
+            0
+            abs
+            0 expect-equal
+    ]
+
+    [   test.describe "abs works on floats"
+
+            -1.5
+            abs
+            1.5 expect-equal
+
+            0.0
+            abs
+            0.0 expect-equal
+    ]
+
+    [   test.describe "abs works on fractions"
+
+            -1⁄2
+            abs
+            1⁄2 expect-equal
+
+            3⁄4
+            abs
+            3⁄4 expect-equal
+    ]
+].

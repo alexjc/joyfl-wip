@@ -1,0 +1,41 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   multiply two numeric values with consistent semantics for ints, floats, and fractions
+#   category:   arithmetic
+#   signature:  x:num y:num -- z:num
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "mul works on integers"
+
+            2 3
+            mul
+            6 expect-equal
+
+            -2 3
+            mul
+            -6 expect-equal
+    ]
+
+    [   test.describe "mul works on floats"
+
+            1.5 2.0
+            mul
+            3.0 expect-equal
+
+            -0.5 4.0
+            mul
+            -2.0 expect-equal
+    ]
+
+    [   test.describe "mul works on fractions"
+
+            2⁄3 3⁄4
+            mul
+            1⁄2 expect-equal
+
+            -1⁄2 3⁄5
+            mul
+            -3⁄10 expect-equal
+    ]
+].

@@ -1,0 +1,41 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   negate a numeric value for ints, floats, and fractions
+#   category:   arithmetic
+#   signature:  x:num -- y:num
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "neg works on integers"
+
+            1
+            neg
+            -1 expect-equal
+
+            -2
+            neg
+            2 expect-equal
+    ]
+
+    [   test.describe "neg works on floats"
+
+            1.5
+            neg
+            -1.5 expect-equal
+
+            -0.5
+            neg
+            0.5 expect-equal
+    ]
+
+    [   test.describe "neg works on fractions"
+
+            1⁄2
+            neg
+            -1⁄2 expect-equal
+
+            -3⁄4
+            neg
+            3⁄4 expect-equal
+    ]
+].

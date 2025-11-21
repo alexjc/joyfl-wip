@@ -1,0 +1,41 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   rotate the top three stack items upwards while keeping lower items intact
+#   category:   stack-operation
+#   signature:  x:any y:any z:any -- z:any x:any y:any
+#   source:     stdlib (libs/stdlib.joy)
+#
+[
+    [   test.describe "rollup rotates top three items upwards"
+
+            1 2 3
+            rollup
+            2 expect-equal
+            1 expect-equal
+            3 expect-equal
+    ]
+
+    [   test.describe "rollup preserves items below"
+
+            0 1 2 3
+            rollup
+            2 expect-equal
+            1 expect-equal
+            3 expect-equal
+            0 expect-equal
+    ]
+
+    [   test.describe "rollup on empty stack raises JoyStackError"
+
+            [ rollup ]
+            'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "rollup with fewer than three items raises JoyStackError"
+
+            [ 1 2 rollup ]
+            'JoyStackError
+        expect-raises
+    ]
+].

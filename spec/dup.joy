@@ -1,0 +1,32 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   duplicate the top stack item while preserving the rest of the stack
+#   category:   stack-operation
+#   signature:  x:any -- x:any x:any
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "dup duplicates top value"
+
+            11
+            dup
+            11 expect-equal
+            11 expect-equal
+    ]
+
+    [   test.describe "dup preserves items below"
+
+            1 2
+            dup
+            2 expect-equal
+            2 expect-equal
+            1 expect-equal
+    ]
+
+    [   test.describe "dup on empty stack raises JoyStackError"
+
+        [ dup ]
+        'JoyStackError
+        expect-raises
+    ]
+].
