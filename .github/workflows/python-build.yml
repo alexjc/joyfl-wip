@@ -43,4 +43,6 @@ jobs:
         run: uv run pytest
 
       - name: Test Joy
-        run: uv run joyfl --plain test
+        run: |
+          uv run joyfl --plain -m test --files="tests/test_*.joy"
+          uv run joyfl --plain -m test --files="spec/*.joy" -q
