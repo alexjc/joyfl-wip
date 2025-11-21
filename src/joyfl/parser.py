@@ -305,7 +305,7 @@ def parse(source: str, start='start', filename=None):
 
 def load_source_lines(meta, keyword, line):
     if meta['filename'] is None or not os.path.isfile(meta['filename']): return ""
-    source = open(meta['filename'], 'r').read()
+    source = open(meta['filename'], 'r', encoding='utf-8').read()
     lines = [l for l in source.split('\n')[meta['start']-1:meta['finish']]]
     j = line - meta['start']
     lines[j] = lines[j].replace(keyword, f"\033[48;5;30m\033[1;97m{keyword}\033[0m")
@@ -328,7 +328,7 @@ def format_source_lines(meta: dict, identifier: str) -> str:
 
 
 def format_parse_error_context(filename, line, column, token_value, source=None):
-    lines = source.splitlines(keepends=True) if source else open(filename, 'r').readlines()
+    lines = source.splitlines(keepends=True) if source else open(filename, 'r', encoding='utf-8').readlines()
     start_line, end_line = max(0, line - 3), min(len(lines), line + 2)
     result = [f"\033[97m  File \"{filename}\", line {line}\033[0m"]
 

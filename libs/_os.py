@@ -18,7 +18,7 @@ def op_list_files_b(pattern: str) -> list[str]:
 
 def op_exec_file_b(filename: str) -> object:
     try:
-        res = J.run(open(filename, 'r').read(), filename=filename, validate=True)
+        res = J.run(open(filename, 'r', encoding='utf-8').read(), filename=filename, validate=True)
     except J.JoyError as exc:
         # Raise a new exception, currently disconnected from the original one
         # so information is lost; errors not as informative as they could be.
