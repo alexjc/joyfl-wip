@@ -15,15 +15,20 @@ def comb_i(_, queue, tail, head, lib):
     queue.extendleft(reversed(head))
     return tail
 
-def comb_dip(_, queue, *stack, lib):
+def comb_dip(this: Operation, queue, *stack, lib):
     """Schedules a program for execution like `i`, but removes the second top-most item from the stack too
     and then restores it after the program is done.  This is like running `i` one level lower in the stack.
     """
-    ((tail, item), head) = stack
-    assert isinstance(head, list)
-    queue.appendleft(item)
-    queue.extendleft(reversed(head))
+    if len(stack) != 2 or stack[0] is nil:
+        raise JoyStackError("`dip` needs at least 2 items on the stack.", joy_op=this)
 
+    base, quotation = stack
+    if not isinstance(quotation, (list, tuple)):
+        raise JoyStackError("`dip` requires a quotation as list as top item on the stack.", joy_op=this)
+
+    tail, item = base
+    queue.appendleft(item)
+    queue.extendleft(reversed(quotation))
     return tail
 
 def comb_step(this: Operation, queue, *stack, lib):
