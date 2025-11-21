@@ -38,7 +38,7 @@ PRIVATE
     collect-all-tests           :   ([onfile] -- [files:FileTests])
         ==  cmd.options                             # read command-line options (may include --files)
             dup 'files swap member?                 # check for user-specified test file pattern
-            [ 'files swap dict-fetch ]              # use override from options
+            [ 'files dict-fetch ]                   # use override from options
             [ pop "tests/test_*.joy" ]              # fallback to default pattern
             :branch
             os.list-files!
@@ -52,11 +52,16 @@ PRIVATE
 # Test Execution
 
    (*  `run-one-test` — Execute a single `TestCase` and compute its logical result (desc, flag).
-    *      Pure business logic: no formatting or printing.
-    *)
+   *      Executes the test body via `exec!`, treating any raised error as a failed test.
+   *      This allows expectation helpers to use `assert!` without leaking booleans.
+   *)
     run-one-test                    :   (testcase:TestCase -- desc flag)
-        ==  unstruct
-            i
+        ==  unstruct                         # desc code
+            swap                             # code desc
+            [exec!] :dip                     # err flag desc
+            rollup                           # desc err flag
+            swap                             # desc flag err
+            pop                              # desc flag
         ;
 
    (*  `run-file-tests` — Execute all tests for a file and invoke a callback on each `TestResult`.
@@ -138,7 +143,7 @@ PRIVATE
             over over +
             rollup
             [] append append append append
-            "\n\n \033[32m%2 pass\033[0m\n \033[90m%1 fail\033[0m\n \033[37m%3 checks\033[0m\n\n\033[97mRan %3 tests across %4 files!\033[0m\n"
+            " \033[32m%2 pass\033[0m\n \033[90m%1 fail\033[0m\n \033[37m%3 checks\033[0m\n\n\033[97mRan %3 tests across %4 files!\033[0m\n"
             txt.format
             put!
         ;
@@ -186,6 +191,7 @@ PRIVATE
             rolldown rolldown
             swap putln!
             "\n" str-join put!
+            "\n\n" put!
         ;
 
    (*  `print-file-core` — Per-file reporter used by `main` (side-effects only).
@@ -201,8 +207,15 @@ PUBLIC
     *)
     describe                ==  'TEST-CASE ;
 
-    expect-equal            ==  equal? ;
-    expect-true             ==  ;
+   (*  `expect-equal` — Assert that the top two stack items are equal.
+    *      Consumes both values and raises `JoyAssertionError` on mismatch.
+    *)
+    expect-equal            ==  equal? assert! ;
+
+   (*  `expect-true` — Assert that the top stack item is logically true.
+    *      Consumes the flag and raises `JoyAssertionError` when false.
+    *)
+    expect-true             ==  assert! ;
 
    (*  `expect-raises` — Assert a quotation raises and matches an expected error type.
     *)
