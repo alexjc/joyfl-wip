@@ -1,0 +1,42 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   exclusive-or on booleans and integers
+#   category:   logic
+#   signature:  x:any y:any -- z:any
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "xor on booleans is true when operands differ"
+
+            true true
+            xor
+            expect-false
+
+            true false
+            xor
+            expect-true
+
+            false true
+            xor
+            expect-true
+
+            false false
+            xor
+            expect-false
+    ]
+
+    [   test.describe "xor on integers performs bitwise exclusive-or"
+
+            1 2
+            xor
+            3 expect-equal      # 01 ^ 10 = 11
+
+            5 3
+            xor
+            6 expect-equal      # 0101 ^ 0011 = 0110
+
+            7 7
+            xor
+            0 expect-equal
+    ]
+].

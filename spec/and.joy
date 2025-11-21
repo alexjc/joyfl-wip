@@ -1,0 +1,27 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   boolean conjunction, true when both operands are true
+#   category:   logic
+#   signature:  x:bool y:bool -- z:bool
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "and implements boolean conjunction"
+
+            true true
+            and
+            expect-true
+
+            true false
+            and
+            expect-false
+
+            false true
+            and
+            expect-false
+
+            false false
+            and
+            expect-false
+    ]
+].

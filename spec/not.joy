@@ -1,0 +1,19 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   boolean negation, inverting a single boolean operand
+#   category:   logic
+#   signature:  x:bool -- y:bool
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "not inverts boolean values"
+
+            true
+            not
+            expect-false
+
+            false
+            not
+            expect-true
+    ]
+].

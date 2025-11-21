@@ -1,0 +1,45 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   compare two values for equality with consistent semantics
+#   category:   comparison
+#   signature:  x:any y:any -- z:bool
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "equal? works on integers"
+
+            1 1
+            equal?
+            true expect-equal
+
+            1 2
+            equal?
+            false expect-equal
+
+            -3 -3
+            equal?
+            true expect-equal
+    ]
+
+    [   test.describe "equal? works on floats"
+
+            0.5 0.5
+            equal?
+            true expect-equal
+
+            1.0 2.0
+            equal?
+            false expect-equal
+    ]
+
+    [   test.describe "equal? works on booleans"
+
+            true true
+            equal?
+            true expect-equal
+
+            true false
+            equal?
+            false expect-equal
+    ]
+].

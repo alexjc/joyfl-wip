@@ -1,0 +1,41 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   compare two values for inequality with consistent semantics
+#   category:   comparison
+#   signature:  x:any y:any -- z:bool
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "differ? works on integers"
+
+            1 2
+            differ?
+            true expect-equal
+
+            5 5
+            differ?
+            false expect-equal
+    ]
+
+    [   test.describe "differ? works on floats"
+
+            0.5 0.25
+            differ?
+            true expect-equal
+
+            -1.0 -1.0
+            differ?
+            false expect-equal
+    ]
+
+    [   test.describe "differ? works on booleans"
+
+            true false
+            differ?
+            true expect-equal
+
+            true true
+            differ?
+            false expect-equal
+    ]
+].

@@ -1,0 +1,61 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   compare two numeric values, true when y is less than or equal to x
+#   category:   comparison
+#   signature:  x:num y:num -- z:bool
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "lte works on integers"
+
+            1 2
+            lte
+            expect-true
+
+            2 1
+            lte
+            expect-false
+
+            3 3
+            lte
+            expect-true
+
+            -3 -1
+            lte
+            expect-true
+
+            -1 -3
+            lte
+            expect-false
+    ]
+
+    [   test.describe "lte works on floats"
+
+            0.5 1.0
+            lte
+            expect-true
+
+            1.0 0.5
+            lte
+            expect-false
+
+            1.0 1.0
+            lte
+            expect-true
+    ]
+
+    [   test.describe "lte works on fractions"
+
+            1⁄2 2⁄3
+            lte
+            expect-true
+
+            2⁄3 1⁄2
+            lte
+            expect-false
+
+            3⁄4 3⁄4
+            lte
+            expect-true
+    ]
+].

@@ -1,0 +1,27 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   boolean disjunction, true when at least one operand is true
+#   category:   logic
+#   signature:  x:bool y:bool -- z:bool
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "or implements boolean disjunction"
+
+            true true
+            or
+            expect-true
+
+            true false
+            or
+            expect-true
+
+            false true
+            or
+            expect-true
+
+            false false
+            or
+            expect-false
+    ]
+].

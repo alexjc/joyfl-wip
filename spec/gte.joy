@@ -1,0 +1,57 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   compare two numeric values, true when y is greater than or equal to x
+#   category:   comparison
+#   signature:  x:num y:num -- z:bool
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "gte works on integers"
+
+            2 1
+            gte
+            expect-true
+
+            1 2
+            gte
+            expect-false
+
+            3 3
+            gte
+            expect-true
+
+            -2 -3
+            gte
+            expect-true
+    ]
+
+    [   test.describe "gte works on floats"
+
+            1.0 0.5
+            gte
+            expect-true
+
+            0.5 1.0
+            gte
+            expect-false
+
+            1.0 1.0
+            gte
+            expect-true
+    ]
+
+    [   test.describe "gte works on fractions"
+
+            1⁄2 2⁄3
+            gte
+            expect-false
+
+            2⁄3 1⁄2
+            gte
+            expect-true
+
+            3⁄4 3⁄4
+            gte
+            expect-true
+    ]
+].
