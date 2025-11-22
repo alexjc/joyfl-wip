@@ -1,6 +1,11 @@
-from joyfl.linker import _populate_joy_definitions
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+
+from joyfl.types import Operation, TypeKey
+from joyfl.errors import JoyUnknownStruct
+from joyfl.linker import _populate_joy_definitions, load_joy_library
 from joyfl.library import Library
-from joyfl.types import Operation
+
+import pytest
 
 
 def _make_meta(line: int = 1) -> dict:
@@ -60,3 +65,17 @@ def test_mutually_recursive_quotations_exec_ptrs_are_resolved():
     assert op_pong.type == Operation.EXECUTE
     assert op_pong.name == "ping"
     assert op_pong.ptr == ping.program
+
+
+def test_unknown_struct_type_in_signature_raises():
+    """Stack-effect referring to undeclared struct TYPEDEF must raise JoyUnknownStruct."""
+    export_lib = Library(functions={}, combinators={}, quotations={}, constants={}, factories={})
+    context_lib = export_lib.with_overlay()
+
+    sig = {"inputs": [TypeKey.from_name("MyPair")], "outputs": [], "arity": 1, "valency": 0}
+    meta_def = {"filename": "<test>", "lines": (1, 1), "signature": sig}
+    meta_tok = {"filename": "<test>", "lines": (1, 1)}
+
+    sections = {"public": [((None, "use-pair", meta_def), [(None, "pop", meta_tok)])], "private": [], "types": [], "module": "m"}
+    with pytest.raises(JoyUnknownStruct):
+        load_joy_library(export_lib, sections, filename="<test>", context_lib=context_lib)

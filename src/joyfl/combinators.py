@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from .types import Operation, Stack, nil, StructInstance
+from .types import Operation, Stack, nil, StructInstance, TypeKey
 from .errors import JoyError, JoyStackError, JoyNameError
 from .parser import parse, TYPE_NAME_MAP
 from .formatting import show_stack, stack_to_list
@@ -120,7 +120,7 @@ def comb_struct(this: Operation, queue, stack: Stack, lib):
     if not isinstance(type_symbol, bytes):
         raise JoyStackError("`struct` expects 'TypeName literal as top of stack.", joy_op=this)
 
-    type_key = bytes(type_symbol) if not isinstance(type_symbol, bytes) else type_symbol
+    type_key = TypeKey.from_name(type_symbol)
     if (meta := lib.struct_types.get(type_key)) is None:
         raise JoyNameError(f"Struct type {repr(type_key)[1:-1]} is not registered. Did you define it?", joy_op=this)
 

@@ -47,6 +47,10 @@ class JoyTypeDuplicate(JoyTypeError):
     """Duplicate or conflicting type definitions discovered while loading."""
     pass
 
+class JoyUnknownStruct(JoyTypeError):
+    """TYPEDEF referenced in a stack-effect annotation but not registered as struct."""
+    pass
+
 
 class JoyStackError(JoyError, TypeError):
     """Runtime type exceptions found by checking the stack and its content."""

@@ -103,3 +103,20 @@ def test_struct_with_incorrect_field_type_raises_stack_error():
         rt.run('"x" 2 \'MyPair struct .', filename="<TEST>")
 
 
+def test_struct_type_enforced_in_stack_validation():
+    src = """
+    MODULE m
+    PUBLIC
+        use-pair : (MyPair --) == pop ;
+        MyPair :: a b ;
+    END.
+    """
+    rt = Runtime()
+    rt.load(src, filename="<TEST>")
+
+    with pytest.raises(JoyStackError):
+        rt.run("42 m.use-pair .", filename="<TEST>", validate=True)
+
+    stack = rt.run("1 2 'MyPair struct m.use-pair .", filename="<TEST>", validate=True)
+    assert rt.from_stack(stack) == []
+

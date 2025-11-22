@@ -3,9 +3,24 @@
 import ast
 from fractions import Fraction
 
-from .types import Operation, Quotation, StructMeta
-from .errors import JoyError, JoyNameError, JoyTypeDuplicate
+from .types import Operation, Quotation, StructMeta, TypeKey
+from .errors import JoyError, JoyNameError, JoyTypeDuplicate, JoyUnknownStruct
 from .library import Library
+
+
+def _resolve_struct_types_in_signature(signature: dict, lib: Library) -> None:
+    """Replace struct TYPE_NAME strings in stack-effect metadata with runtime struct types."""
+    def _resolve(seq):
+        for t in seq:
+            if not isinstance(t, TypeKey):
+                yield t
+            elif t not in lib.struct_types:
+                raise JoyUnknownStruct(f"Unknown struct type `{t.to_str()}` in stack effect.", joy_token=t.to_str(), joy_meta=None)
+            else:
+                yield lib.struct_types[t]
+
+    signature["inputs"] = list(_resolve(signature["inputs"]))
+    signature["outputs"] = list(_resolve(signature["outputs"]))
 
 
 def link_body(tokens: list, meta: dict, lib: Library):
@@ -17,6 +32,7 @@ def link_body(tokens: list, meta: dict, lib: Library):
     output = []
     meta = {'filename': meta.get('filename'), 'start': lines[0], 'finish': -1}
     if signature is not None:
+        _resolve_struct_types_in_signature(signature, lib)
         meta['signature'] = signature
 
     for typ, token, mt in tokens:
@@ -110,14 +126,11 @@ def load_joy_library(export_lib: Library, sections: dict, filename: str, context
     for _visibility, typename, type_meta in sections.get("types") or []:
         if type_meta.get("kind") != "product": continue
 
-        fields = tuple(type_meta.get("fields") or [])
-        if (arity := len(fields)) <= 0: continue
-
-        key = typename.encode("utf-8")
-        struct_meta = StructMeta(name=key, arity=arity, fields=fields)
-        if (existing := export_lib.struct_types.get(key)) is not None and existing != struct_meta:
+        struct_type = StructMeta.from_typedef(typename, tuple(type_meta["fields"]))
+        type_key = struct_type.name
+        if (existing := export_lib.struct_types.get(type_key)) is not None and existing is not struct_type:
             raise JoyTypeDuplicate(f"Struct type `{typename}` already registered, and shapes differ.", joy_token=typename, joy_meta={"filename": filename})
-        export_lib.struct_types[key] = struct_meta
+        export_lib.struct_types[type_key] = struct_type
 
     # Link PRIVATE first so PUBLIC can depend on them. Mark them first as "local" so they can be found.
     _populate_joy_definitions(private_defs, lib=local_lib, visibility="local", module=module_name)

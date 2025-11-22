@@ -81,16 +81,50 @@ class Quotation:
     module: str | None     # MODULE name, or None for global/legacy
 
 
-@dataclass(frozen=True)
-class StructMeta:
-    """Metadata for product-type structs registered from Joy TYPEDEF declarations."""
-    name: bytes
-    arity: int
-    fields: tuple[dict, ...]
+class TypeKey(bytes):
+    """Opaque identifier for Joy TYPE_NAMEs used as struct type keys."""
+
+    @classmethod
+    def from_name(cls, name: str | bytes) -> "TypeKey":
+        return cls(name if isinstance(name, bytes) else name.encode("utf-8"))
+
+    def to_str(self) -> str:
+        return self.decode("utf-8")
 
 
 @dataclass(frozen=True)
 class StructInstance:
     """Runtime representation of a product type instance constructed via `struct`."""
-    typename: bytes              # Symbol name as emitted by `'MyStructType` literals.
+    typename: TypeKey            # Symbol name as emitted by `'MyStructType` literals.
     fields: tuple[object, ...]   # Field values in left-to-right declaration order.
+
+
+class StructMeta(type):
+    """Runtime type for Joy product structs; also carries TYPEDEF metadata.
+
+    Each Joy `TYPEDEF` declaration is represented as a distinct Python class whose
+    instances are conceptually `StructInstance` values with a matching `typename`.
+    The class object itself exposes `.name`, `.arity` and `.fields` for use by
+    combinators such as `struct` and `unstruct`.
+    """
+
+    name: TypeKey
+    arity: int
+    fields: tuple[dict, ...]
+
+    def __new__(mcls, name, bases, namespace, *, typename: TypeKey, fields: tuple[dict, ...]):
+        cls = super().__new__(mcls, name, bases, namespace)
+        cls.name = typename
+        cls.arity = len(fields)
+        cls.fields = tuple(fields)
+        return cls
+
+    @classmethod
+    def from_typedef(mcls, typename: str, fields: tuple[dict, ...]) -> type:
+        """Factory to create a StructMeta class from Joy TYPEDEF declaration."""
+        type_key = TypeKey.from_name(typename)
+        return mcls(typename, (object,), {}, typename=type_key, fields=fields)
+
+    def __instancecheck__(cls, instance):
+        # Treat any StructInstance tagged with this struct's name as an instance.
+        return isinstance(instance, StructInstance) and instance.typename == cls.name

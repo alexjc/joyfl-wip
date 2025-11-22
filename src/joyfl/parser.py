@@ -7,7 +7,7 @@ import textwrap
 from typing import Any
 
 import lark
-from .types import Stack
+from .types import Stack, TypeKey
 from .errors import JoyParseError, JoyIncompleteParse
 
 
@@ -82,6 +82,13 @@ TYPE_NAME_MAP: dict[str, Any] = {
 }
 
 
+def _type_key(name: str | None) -> str:
+    return (name or '').lower()
+
+
+_TYPE_HINTS: set[str] = set(TYPE_NAME_MAP)
+
+
 def _stack_effect_to_meta(effect: dict | None) -> dict | None:
     if not effect: return None
 
@@ -91,7 +98,13 @@ def _stack_effect_to_meta(effect: dict | None) -> dict | None:
             type_name = item.get('type')
             if type_name is None and item.get('quote') is not None:
                 type_name = 'quot'
-            converted.append(TYPE_NAME_MAP.get((type_name or '').lower(), Any))
+            lower = (type_name or '').lower()
+            if lower in TYPE_NAME_MAP:
+                converted.append(TYPE_NAME_MAP[lower])
+            else:
+                # Unknown TYPE_NAMEs (typically Joy struct types like `MyPair`)
+                # are encoded as TypeKey so the linker can resolve them.
+                converted.append(TypeKey.from_name(type_name))
         return list(reversed(converted))
 
     inputs, outputs = effect.get('inputs', []), effect.get('outputs', [])
@@ -101,9 +114,6 @@ def _stack_effect_to_meta(effect: dict | None) -> dict | None:
         'arity': len(inputs),
         'valency': len(outputs),
     }
-
-
-_TYPE_HINTS = {name for name in TYPE_NAME_MAP}
 
 
 def parse(source: str, start='start', filename=None):
@@ -273,19 +283,28 @@ def parse(source: str, start='start', filename=None):
 
         if it.data == 'library':
             sections = {"module": None, "private": [], "public": [], "types": []}
+            clause_defs: list[tuple[str, list]] = []
             for ch in [c for c in it.children[:-1] if c not in ('END', '.')]:
                 key = ch.data.split('_', maxsplit=1)[0]
                 if key == 'module':
                     name_token = next((t for t in ch.children if isinstance(t, lark.Token) and t.type == 'NAME'), None)
                     sections['module'] = name_token.value if name_token is not None else None
                 else:
-                    term_defs = []
-                    for def_node in ch.children[0].children:
-                        if (parsed := _extract_definition_body(def_node)):
-                            term_defs.append(parsed)
-                        if (type_parsed := _extract_type_definition(def_node)):
-                            sections['types'].append((key, *type_parsed))
-                    sections[key] = term_defs
+                    defs = list(ch.children[0].children)
+                    clause_defs.append((key, defs))
+
+            for key, defs in clause_defs:
+                for def_node in defs:
+                    if (type_parsed := _extract_type_definition(def_node)):
+                        typename, type_meta = type_parsed
+                        sections['types'].append((key, typename, type_meta))
+
+            for key, defs in clause_defs:
+                term_defs = []
+                for def_node in defs:
+                    if (parsed := _extract_definition_body(def_node)):
+                        term_defs.append(parsed)
+                sections[key] = term_defs
             yield 'library', sections
         elif it.data == 'term':
             yield 'term', list(_flatten(it))
