@@ -67,19 +67,33 @@ def link_body(tokens: list, meta: dict, lib: Library):
 def _populate_joy_definitions(definitions: list, lib: Library, visibility: str, module: str):
     def _fill_recursive_calls(n):
         if isinstance(n, list): return [_fill_recursive_calls(t) for t in n]
-        if isinstance(n, Operation) and n.ptr is None: n.ptr = prg
+        if isinstance(n, Operation) and n.ptr is None:
+            if (q := lib.quotations.get(n.name)) is not None:
+                assert q.program is not None
+                n.ptr = q.program
         return n
 
+    # First pass: register placeholders forward-references and mutual-recursion can be resolved later.
+    for (_, key, _mt), _tokens in definitions:
+        assert key not in lib.quotations
+        lib.quotations[key] = Quotation(program=None, meta={}, visibility=visibility, module=module)
+
+    # Second pass: link each body now that all quotation names are known.
     for (_, key, mt), tokens in definitions:
-        # Placeholder for forward/self-references; `program` is None until the body has been fully linked.
-        quot = Quotation(program=None, meta={}, visibility=visibility, module=module)
-        lib.quotations[key] = quot
         try:
             prg, meta = link_body(tokens, meta=mt, lib=lib)
-            quot.program, quot.meta = _fill_recursive_calls(prg), meta
         except JoyError:
-            del lib.quotations[key]
+            for (_, key, _mt), _tokens in definitions:
+                lib.quotations.pop(key, None)
             raise
+
+        quot = lib.quotations[key]
+        quot.program, quot.meta = prg, meta
+
+    # Third pass: resolve the placeholders that were previously put in place.
+    for (_, key, _), _ in definitions:
+        quot = lib.quotations.get(key)
+        quot.program = _fill_recursive_calls(quot.program)
 
 
 def load_joy_library(export_lib: Library, sections: dict, filename: str, context_lib: Library) -> Library:
