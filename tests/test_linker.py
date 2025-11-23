@@ -1,5 +1,6 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
+from joyfl import parser
 from joyfl.types import Operation, TypeKey
 from joyfl.errors import JoyUnknownStruct
 from joyfl.linker import _populate_joy_definitions, load_joy_library
@@ -79,3 +80,34 @@ def test_unknown_struct_type_in_signature_raises():
     sections = {"public": [((None, "use-pair", meta_def), [(None, "pop", meta_tok)])], "private": [], "types": [], "module": "m"}
     with pytest.raises(JoyUnknownStruct):
         load_joy_library(export_lib, sections, filename="<test>", context_lib=context_lib)
+
+
+
+def test_quotation_types_are_resolved_into_signature_schema():
+    source = """
+    MODULE m
+    PUBLIC
+        BranchArm :: (X.. -- Y..) ;
+        branch : (X.. flag:bool [then:BranchArm] [else:BranchArm] -- Y..) == ;
+    END.
+    """
+    items = list(parser.parse(source, filename="<test>"))
+    [(_, sections)] = items
+
+    export_lib = Library(functions={}, combinators={}, quotations={}, constants={}, factories={})
+    context_lib = export_lib.with_overlay()
+
+    load_joy_library(export_lib, sections, filename="<test>", context_lib=context_lib)
+
+    assert "BranchArm" in export_lib.quotations
+    assert export_lib.quotations["BranchArm"].type is not None
+    branch_name = next(name for name in export_lib.quotations if name.endswith("branch"))
+    branch = export_lib.quotations[branch_name]
+    inputs_sym = branch.meta["signature"]["inputs_sym"]
+    then_entry = next(entry for entry in inputs_sym if entry.get("label") == "then")
+    assert then_entry["quote"]["type"] == "BranchArm"
+    assert "quote_effect" in then_entry
+    effect = then_entry["quote_effect"]
+    assert effect["inputs"][0]["kind"] == "segment"
+    assert effect["outputs"][0]["kind"] == "segment"
+    assert effect["outputs"][0]["type"] == "Y.."

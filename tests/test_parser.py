@@ -159,3 +159,47 @@ def test_typedef_list_wrapped_custom_type():
     [inner_tests] = field_tests["quote"]
     assert inner_tests["label"] == "tests"
     assert inner_tests["type"] == "TestCase"
+
+
+def test_parser_handles_quotation_typedefs_and_segments():
+    src = """
+    MODULE m
+    PUBLIC
+        BranchArm   :: (X.. -- Y..) ;
+        NullaryTest :: (X.. -- bool X..) ;
+        LoopProgram :: (X.. -- bool X..) ;
+        WhileCond   :: (X.. -- bool X..) ;
+        WhileBody   :: (X.. -- X..) ;
+        MapPredicate :: (X -- Y) ;
+
+        branch : (X.. flag:bool [then:BranchArm] [else:BranchArm] -- Y..) == ;
+        ifte   : (X.. [test:NullaryTest] [then:BranchArm] [else:BranchArm] -- Y..) == ;
+        loop   : (X.. flag:bool [program:LoopProgram] -- X..) == ;
+        while  : (X.. [cond:WhileCond] [body:WhileBody] -- X..) == ;
+        map    : ([values:X] [pred:MapPredicate] -- [result:Y]) == ;
+    END.
+    """
+    public_defs = _parse_library(src)
+    sig_by_name = {}
+    for head, _ in public_defs:
+        meta = head[2]
+        if not isinstance(meta, dict) or "signature" not in meta:
+            continue
+        sig_by_name[head[1]] = meta["signature"]
+
+    def _inputs(name: str): return sig_by_name[name]["inputs_sym"]
+    def _outputs(name: str): return sig_by_name[name]["outputs_sym"]
+
+    branch_inputs = _inputs("branch")
+    assert branch_inputs[0]["kind"] == "segment"
+    assert branch_inputs[0]["type"] == "X.."
+    then_entry = next(entry for entry in branch_inputs if entry.get("label") == "then")
+    assert then_entry["kind"] == "quotation"
+    assert then_entry["quote"]["type"] == "BranchArm"
+
+    map_inputs = _inputs("map")
+    values_entry = next(entry for entry in map_inputs if entry.get("label") == "values")
+    assert values_entry["quote"]["type"] == "X"
+    map_outputs = _outputs("map")
+    result_entry = map_outputs[-1]
+    assert result_entry["quote"]["type"] == "Y"

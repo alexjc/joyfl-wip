@@ -75,10 +75,11 @@ Visibility = Literal["public", "private", "local"]
 
 @dataclass
 class Quotation:
-    program: list          # list[Operation]
-    meta: dict             # filename, start/finish, signature, etc.
-    visibility: Visibility # "public", "private", or temporary "local"
-    module: str | None     # MODULE name, or None for global/legacy
+    program: list                 # list[Operation]
+    meta: dict                    # filename, start/finish, signature, etc.
+    visibility: Visibility        # "public", "private", or temporary "local"
+    module: str | None            # MODULE name, or None for global
+    type: dict | None = None      # Optional quotation TYPEDEF metadata
 
 
 class TypeKey(bytes):

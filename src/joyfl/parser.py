@@ -23,7 +23,7 @@ stack_effect_annotation: COLON stack_effect
 stack_effect: LPAREN stack_pattern ARROW stack_pattern RPAREN
 stack_pattern: stack_item*
 stack_item: stack_atom | LSQB stack_atom RSQB | LBRACE stack_atom+ RBRACE
-stack_atom: PARAM | TYPE_NAME
+stack_atom: PARAM | TYPE_NAME | TYPEVAR | SEGVAR
 
 type_definition: TYPE_NAME TYPEDEF (product_type | sum_type)
 product_type: (PARAM | list_param | stack_effect)+
@@ -45,6 +45,8 @@ SEPARATOR: ";"
 TYPEDEF.11: "::"
 BAR: "|"
 TYPE_NAME: /[A-Z][A-Za-z]*[a-z]/
+SEGVAR: /[A-Z]\.\./
+TYPEVAR: /[A-Z]/
 STRING.8: /"(?:[^"\\]|\\.)*"/
 FLOAT.8: /-?(?:\d+\.\d+)(?:[eE][+-]?\d+)?/
 INTEGER.8: /-?\d+/
@@ -92,27 +94,42 @@ _TYPE_HINTS: set[str] = set(TYPE_NAME_MAP)
 def _stack_effect_to_meta(effect: dict | None) -> dict | None:
     if not effect: return None
 
-    def _convert(items):
+    def _convert_to_runtime(items):
         converted = []
         for item in items:
+            kind = item.get('kind')
+
+            # If there is a segment TypeVar (like X.. or Y..), we can't provide fixed / deterministic
+            # runtime type information, so return None so there is no stepwise validation.
+            if kind == 'segment':
+                return None
+
             type_name = item.get('type')
-            if type_name is None and item.get('quote') is not None:
+            if kind == 'quotation' or (type_name is None and item.get('quote') is not None):
                 type_name = 'quot'
-            lower = (type_name or '').lower()
-            if lower in TYPE_NAME_MAP:
+
+            if kind == 'typevar':
+                converted.append(Any)
+                continue
+
+            if (lower := (type_name or '').lower()) in TYPE_NAME_MAP:
                 converted.append(TYPE_NAME_MAP[lower])
-            else:
+            elif type_name:
                 # Unknown TYPE_NAMEs (typically Joy struct types like `MyPair`)
                 # are encoded as TypeKey so the linker can resolve them.
                 converted.append(TypeKey.from_name(type_name))
+            else:
+                converted.append(Any)
         return list(reversed(converted))
 
-    inputs, outputs = effect.get('inputs', []), effect.get('outputs', [])
+    inputs_sym, outputs_sym = effect.get('inputs', []), effect.get('outputs', [])
     return {
-        'inputs': _convert(inputs),
-        'outputs': _convert(outputs),
-        'arity': len(inputs),
-        'valency': len(outputs),
+        'inputs': _convert_to_runtime(inputs_sym),
+        'outputs': _convert_to_runtime(outputs_sym),
+        'inputs_sym': inputs_sym,
+        'outputs_sym': outputs_sym,
+        'arity': len(inputs_sym),
+        'valency': len(outputs_sym),
     }
 
 
@@ -121,13 +138,14 @@ def parse(source: str, start='start', filename=None):
 
     def _param_entry(raw: str) -> dict:
         label, _, type_name = raw.partition(':')
-        entry = {'label': label, 'type': None, 'quote': None, 'raw': raw}
+        entry = {'label': label or None, 'type': None, 'quote': None, 'raw': raw, 'kind': 'value'}
         if type_name:  # Explicit WORD:TYPE form.
             assert label.lower() not in _TYPE_HINTS
             entry['type'] = type_name
         else:  # Bare WORD, determine if type or label.
             if (lower := label.lower()) in _TYPE_HINTS:
                 entry['type'], entry['label'] = lower, None
+                entry['kind'] = 'type'
         return entry
 
     def _stack_atom_to_entry(atom: lark.Tree) -> dict:
@@ -136,8 +154,13 @@ def parse(source: str, start='start', filename=None):
         tok = next(ch for ch in atom.children if isinstance(ch, lark.Token))
         if tok.type == 'PARAM':
             return _param_entry(tok.value)
-        assert tok.type == 'TYPE_NAME'
-        return {'label': None, 'type': tok.value, 'quote': None, 'raw': tok.value}
+        if tok.type == 'TYPE_NAME':
+            return {'label': None, 'type': tok.value, 'quote': None, 'raw': tok.value, 'kind': 'type'}
+        if tok.type == 'TYPEVAR':
+            return {'label': None, 'type': tok.value, 'quote': None, 'raw': tok.value, 'kind': 'typevar'}
+        if tok.type == 'SEGVAR':
+            return {'label': None, 'type': tok.value, 'quote': None, 'raw': tok.value, 'kind': 'segment'}
+        raise JoyParseError(f"Unexpected token {tok.type} in stack atom", filename=filename)
 
     def _is_token(node, type_: str) -> bool: return isinstance(node, lark.Token) and node.type == type_
     def _is_tree(node, data_: str) -> bool: return isinstance(node, lark.Tree) and node.data == data_
@@ -156,12 +179,18 @@ def parse(source: str, start='start', filename=None):
             # LIST-implied stack items: [stack_atom] single-item expected.
             if len(children) == 3 and _is_token(children[0], 'LSQB') and _is_tree(children[1], 'stack_atom') and _is_token(children[2], 'RSQB'):
                 inner_entry = _stack_atom_to_entry(children[1])
-                items.append({'quote': [inner_entry], 'label': None, 'type': 'list', 'raw': None})
+                items.append({
+                    'quote': inner_entry,
+                    'label': inner_entry.get('label'),
+                    'type': inner_entry.get('type'),
+                    'raw': inner_entry.get('raw'),
+                    'kind': 'quotation',
+                })
                 continue
             # TUPLE-specified product data-type; {stack_atom ...} multiple items likely.
             if len(children) >= 3 and _is_token(children[0], 'LBRACE') and _is_token(children[-1], 'RBRACE'):
                 inner_items = [_stack_atom_to_entry(ch) for ch in children[1:-1] if _is_tree(ch, 'stack_atom')]
-                items.append({'quote': inner_items, 'label': None, 'type': 'list', 'raw': None})
+                items.append({'quote': inner_items, 'label': None, 'type': 'list', 'raw': None, 'kind': 'quotation'})
                 continue
             raise NotImplementedError("Unexpected pattern from parser in stack_item.")
 
@@ -239,6 +268,11 @@ def parse(source: str, start='start', filename=None):
 
         typename = name_token.value
         if body_node.data == 'product_type':
+            stack_nodes = [ch for ch in body_node.children if isinstance(ch, lark.Tree) and ch.data == 'stack_effect']
+            if len(body_node.children) == 1 and stack_nodes:
+                effect = _stack_effect(stack_nodes[0])
+                return typename, {'kind': 'quotation', 'effect': effect}
+
             fields = []
             for ch in body_node.children:
                 # Bare PARAMs become struct fields.

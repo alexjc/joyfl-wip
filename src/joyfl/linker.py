@@ -11,6 +11,8 @@ from .library import Library
 def _resolve_struct_types_in_signature(signature: dict, lib: Library) -> None:
     """Replace struct TYPE_NAME strings in stack-effect metadata with runtime struct types."""
     def _resolve(seq):
+        if seq is None: return
+
         for t in seq:
             if not isinstance(t, TypeKey):
                 yield t
@@ -21,6 +23,18 @@ def _resolve_struct_types_in_signature(signature: dict, lib: Library) -> None:
 
     signature["inputs"] = list(_resolve(signature["inputs"]))
     signature["outputs"] = list(_resolve(signature["outputs"]))
+
+    # Symbolic stack entries keep their labels/vars; only attach quotation type metadata.
+    def _attach(entries):
+        for entry in entries:
+            if entry.get("kind") == "quotation":
+                ref_name = entry.get("type")
+                if ref_name and (qt := lib.quotations.get(ref_name)) and qt.type:
+                    entry["quote_effect"] = qt.type
+            yield entry
+
+    signature["inputs_sym"] = list(_attach(signature.get("inputs_sym", [])))
+    signature["outputs_sym"] = list(_attach(signature.get("outputs_sym", [])))
 
 
 def link_body(tokens: list, meta: dict, lib: Library):
@@ -122,15 +136,36 @@ def load_joy_library(export_lib: Library, sections: dict, filename: str, context
     # Overlay for definitions: writes go to the local dict, reads fall back to context.
     local_lib = context_lib.with_overlay()
 
-    # Register product-type TYPEDEFs as struct types in the export library.
-    for _visibility, typename, type_meta in sections.get("types") or []:
-        if type_meta.get("kind") != "product": continue
+    def _store_target(target_lib: Library, effect):
+        placeholder = Quotation(
+            program=None, meta={'type_name': typename, 'filename': filename},
+            visibility="public", module=module_name, type=effect
+        )
+        target_lib.quotations[typename] = placeholder
 
-        struct_type = StructMeta.from_typedef(typename, tuple(type_meta["fields"]))
-        type_key = struct_type.name
-        if (existing := export_lib.struct_types.get(type_key)) is not None and existing is not struct_type:
-            raise JoyTypeDuplicate(f"Struct type `{typename}` already registered, and shapes differ.", joy_token=typename, joy_meta={"filename": filename})
-        export_lib.struct_types[type_key] = struct_type
+    # Register TYPEDEFs (structs and quotation types) in the export library.
+    for _visibility, typename, type_meta in sections.get("types") or []:
+        match type_meta.get("kind"):
+            case "product":
+                struct_type = StructMeta.from_typedef(typename, tuple(type_meta["fields"]))
+                type_key = struct_type.name
+                if (existing := export_lib.struct_types.get(type_key)) is not None and existing is not struct_type:
+                    raise JoyTypeDuplicate(
+                        f"Struct type `{typename}` already registered, and shapes differ.",
+                        joy_token=typename, joy_meta={"filename": filename})
+                export_lib.struct_types[type_key] = struct_type
+            case "quotation":
+                effect = type_meta["effect"]
+                existing = export_lib.quotations.get(typename)
+                if existing is not None and existing.type is not None and existing.type != effect:
+                    raise JoyTypeDuplicate(
+                        f"Quotation type `{typename}` already registered, and stack effects differ.",
+                        joy_token=typename, joy_meta={"filename": filename}
+                    )
+                _store_target(export_lib, effect)
+                _store_target(local_lib, effect)
+            case _:
+                raise NotImplementedError
 
     # Link PRIVATE first so PUBLIC can depend on them. Mark them first as "local" so they can be found.
     _populate_joy_definitions(private_defs, lib=local_lib, visibility="local", module=module_name)
