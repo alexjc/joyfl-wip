@@ -8,7 +8,7 @@ from .errors import JoyError, JoyNameError, JoyTypeDuplicate, JoyUnknownStruct
 from .library import Library
 
 
-def _resolve_struct_types_in_signature(signature: dict, lib: Library) -> None:
+def _resolve_struct_types_in_signature(signature: dict, lib: Library, meta: dict) -> None:
     """Replace struct TYPE_NAME strings in stack-effect metadata with runtime struct types."""
     def _resolve(seq):
         if seq is None: return
@@ -17,7 +17,7 @@ def _resolve_struct_types_in_signature(signature: dict, lib: Library) -> None:
             if not isinstance(t, TypeKey):
                 yield t
             elif t not in lib.struct_types:
-                raise JoyUnknownStruct(f"Unknown struct type `{t.to_str()}` in stack effect.", joy_token=t.to_str(), joy_meta=None)
+                raise JoyUnknownStruct(f"Unknown struct type `{t.to_str()}` in stack effect.", joy_token=t.to_str(), joy_meta=meta)
             else:
                 yield lib.struct_types[t]
 
@@ -46,7 +46,7 @@ def link_body(tokens: list, meta: dict, lib: Library):
     output = []
     meta = {'filename': meta.get('filename'), 'start': lines[0], 'finish': -1}
     if signature is not None:
-        _resolve_struct_types_in_signature(signature, lib)
+        _resolve_struct_types_in_signature(signature, lib, meta)
         meta['signature'] = signature
 
     for typ, token, mt in tokens:
