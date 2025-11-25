@@ -5,8 +5,12 @@ from collections import ChainMap
 from dataclasses import dataclass, field, replace
 
 from .types import Stack, Quotation, StructMeta, TypeKey
-from .errors import JoyNameError, JoyTypeError
+from .errors import JoyNameError
 from .loader import get_stack_effects
+
+
+def is_module_name(x):
+    return x[0].isalpha() and all(ch.isalpha() or ch.isdigit() for ch in x[1:])
 
 
 @dataclass
@@ -39,14 +43,14 @@ class Library:
         if '.' not in resolved_name or self.py_module_loader is None:
             return
         ns, op = resolved_name.split('.', 1)
-        if ns not in self.loaded_modules:
+        if is_module_name(ns) and ns not in self.loaded_modules:
             # Load and register all operators/factories from the Python module at once.
             self.py_module_loader(self, ns, op, meta)
 
     def get_quotation(self, name: str, *, meta: dict | None = None) -> Quotation | None:
         resolved_name = self.aliases.get(name, name)
         if '.' in resolved_name and self.joy_module_loader is not None:
-            if (ns := resolved_name.split('.', 1)[0]) not in self.loaded_modules:
+            if (ns := resolved_name.split('.', 1)[0]) and is_module_name(ns) and ns not in self.loaded_modules:
                 self.joy_module_loader(self, ns, meta)
         if (quot := self.quotations.get(resolved_name)) and quot.visibility != "private":
             return quot

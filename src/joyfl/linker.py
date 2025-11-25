@@ -67,6 +67,8 @@ def link_body(tokens: list, meta: dict, lib: Library):
             output.append(Operation(Operation.COMBINATOR, lib.combinators[token], token, mt))
         elif token in lib.constants:
             output.append(lib.constants[token])
+        elif token.startswith('"') and token.endswith('"'):
+            output.append(ast.literal_eval(token))
         elif (factory := lib.get_factory((name := token.lstrip('@')), meta=mt, joy_token=token, strict=token.startswith('@'))):
             output.append(factory())
         elif (q := lib.get_quotation(token, meta=mt)) is not None:
@@ -74,8 +76,6 @@ def link_body(tokens: list, meta: dict, lib: Library):
             if q.meta and 'signature' in q.meta:
                 mt['signature'] = q.meta['signature']
             output.append(Operation(Operation.EXECUTE, q.program, token, mt))
-        elif token.startswith('"') and token.endswith('"'):
-            output.append(ast.literal_eval(token))
         elif token.startswith("'"):
             output.append(bytes(token[1:], encoding='utf-8'))
         elif '⁄' in token[1:-1] and all(ch.isdigit() or ch == '⁄' for ch in token.lstrip('-')):
