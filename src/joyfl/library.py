@@ -59,12 +59,14 @@ class Library:
             return function
         raise JoyNameError(f"Operation `{name}` not found in library.", joy_token=name, joy_meta=meta)
 
-    def get_factory(self, name: str, *, meta: dict | None = None, joy_token: str) -> Callable[[], Any]:
+    def get_factory(self, name: str, *, meta: dict | None = None, joy_token: str, strict: bool = False) -> Callable[[], Any] | None:
         resolved_name = self.aliases.get(name, name)
         self._maybe_load_py_module(resolved_name, meta)
         if (factory := self.factories.get(resolved_name)) is not None:
             return factory
-        raise JoyNameError(f"Unknown factory `{joy_token}`.", joy_token=joy_token, joy_meta=meta)
+        if strict:
+            raise JoyNameError(f"Unknown factory `{joy_token}`.", joy_token=joy_token, joy_meta=meta)
+        return None
 
     def with_overlay(self) -> "Library":
         """Create new view sharing all structure with this one, except for an overlaid `quotations` mapping."""

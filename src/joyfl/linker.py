@@ -67,8 +67,7 @@ def link_body(tokens: list, meta: dict, lib: Library):
             output.append(Operation(Operation.COMBINATOR, lib.combinators[token], token, mt))
         elif token in lib.constants:
             output.append(lib.constants[token])
-        elif (name := token.lstrip('@')) in lib.factories or token.startswith('@'):
-            factory = lib.get_factory(name, meta=mt, joy_token=token)
+        elif (factory := lib.get_factory((name := token.lstrip('@')), meta=mt, joy_token=token, strict=token.startswith('@'))):
             output.append(factory())
         elif (q := lib.get_quotation(token, meta=mt)) is not None:
             mt['body'] = q.meta

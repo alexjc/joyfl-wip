@@ -86,3 +86,20 @@ def test_python_module_registers_factory_via_api_and_is_auto_loaded(tmp_path, mo
     stack = J.run("@ok.answer .", filename="<USE>")
     top = J.from_stack(stack)[0]
     assert isinstance(top, dict) and top["answer"] == 42
+
+
+def test_factory_auto_loaded_without_at_prefix(tmp_path, monkeypatch):
+    # Factory used WITHOUT @ prefix should still auto-load the module.
+    module_source = (
+        "import joyfl.api as J\n"
+        "def op_dummy(x: int) -> int: return x\n"
+        "J.register_factory('nop.widget', lambda: {'widget': 99})\n"
+        "__operators__ = [op_dummy]\n"
+    )
+    _write(tmp_path, "nop", module_source)
+    _setup_env(monkeypatch, tmp_path)
+
+    # Use factory WITHOUT @ prefix — should still trigger auto-load.
+    stack = J.run("nop.widget .", filename="<USE>")
+    top = J.from_stack(stack)[0]
+    assert isinstance(top, dict) and top["widget"] == 99
