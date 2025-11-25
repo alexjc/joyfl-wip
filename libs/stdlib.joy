@@ -6,6 +6,14 @@
 DEFINE
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────
+# Type Definitions
+
+    Predicate       ::  (X.. -- X.. bool) ;
+    Checker         ::  (X.. -- Y.. bool) ;
+    Quotation       ::  (Y.. -- Z..) ;
+
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
 # Basic Operations
 
     pred            ==  1 - ;
@@ -24,6 +32,9 @@ DEFINE
 
     rollup          ==  swap [swap] :dip ;
     rolldown        ==  [swap] :dip swap ;
+
+    dupd            ==  [dup] :dip ;
+    over            ==  dupd swap ;
 
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -45,9 +56,6 @@ DEFINE
 
     x               ==  dup i ;
     y               ==  [dup cons] swap concat dup cons i ;
-
-    dupd            ==  [dup] :dip ;
-    over            ==  dupd swap ;
 
    (*  `dipd` — executes a quotation with the top two stack items saved and restored later.
     *   EXAMPLE:    1 2 3 [10 +] dipd rolldown 11 equal? .
@@ -79,7 +87,7 @@ DEFINE
     *   EXAMPLE:    5 true [1 +] [1 -] branch put! .
     *   NOTE:       The flag is consumed, after which teh quatation is inlined with `i`.
     *)
-    branch          :   (flag  [then] [else]         -- )
+    branch          :   (X.. flag:bool [then:Quotation] [else:Quotation] -- Y..)
                     #    false [then] [else] branch  →  else
                     #    true  [then] [else] branch  →  then
                     ==  choice i ;
@@ -144,7 +152,7 @@ DEFINE
     *   EXAMPLE:    10 [5 >] [99 +] [99 -] ifte put! .
     *   NOTE:       Test is executed in nullary context, i.e. no stack effect.
     *)
-    ifte            :   (x [test] [then] [else]       -- )
+    ifte            :   (X.. [test:Checker] [then:Quotation] [else:Quotation] -- Y..)
                     #    x [test] [then] [else] ifte  →  then-result or else-result
                     ==  [nullary] dipd :branch ;
 
@@ -154,7 +162,7 @@ DEFINE
     *   NOTE:       The looped program body is usually expected to produce the flag for the
     *               next iteration, though it can be prepared on the stack too.
     *)
-    loop            :   (flag  [program]    -- )
+    loop            :   (X.. flag:bool [program:Quotation] -- Y..)
                     #    true  [prog] loop  →  prog [prog] loop
                     #    false [prog] loop  →  ∅
                     ==  swap
@@ -179,7 +187,9 @@ DEFINE
     *   EXAMPLE:    0 [dup 3 <] [dup put! 1 +] while 3 equal? .
     *   NOTE:       Unlike loop, condition and body are separate quotations evaluated on each iteration.
     *)
-    while           ==  [dup dip swap] :dip swap                        # execute a copy of the condition
+
+    while           :   (X.. [cond:Checker] [body:Quotation] -- Y..)
+                    ==  [dup dip swap] :dip swap                        # execute a copy of the condition
                         [dup [dip] :dip while]                              # execute the program and recurse
                         [pop pop]                                           # cleanup the stack once done
                         :branch ;                                           # check condition flag, pick right option
@@ -245,7 +255,9 @@ DEFINE
     *   EXAMPLE:    [1 2 3] [dup *] map [1 4 9] equal? .
     *   NOTE:       Preserves list order, quotation executed once per element with results accumulated.
     *)
-    map             :  ([values] [pred] -- [result])
+    MappingQuot     ::  (X -- Y) ;
+
+    map             :  ([values:X] [body:MappingQuot] -- [result:Y])
                     ==  [] rollup                                       # make a new ACCUMULATOR, and order it before VALUES
                         [dup first] swoncat                             # assemble a dynamic list of instructions for each step
                         [swap [swappend] :dip rest] concat              # -> [dup first PREDICATES swap [swappend] dip rest]

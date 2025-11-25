@@ -23,13 +23,14 @@ def op_max(b: num, a: num) -> num: return max(b, a)
 def op_mul(b: num, a: num) -> num: return b * a
 def op_div(b: num, a: num) -> num: return b / a
 def op_rem(b: num, a: num) -> num: return b % a
+## COMPARATORS
 def op_equal_q(b: Any, a: Any) -> bool: return b == a
 def op_differ_q(b: Any, a: Any) -> bool: return b != a
-## BOOLEAN LOGIC
 def op_gt(b: num, a: num) -> bool: return b > a
 def op_gte(b: num, a: num) -> bool: return b >= a
 def op_lt(b: num, a: num) -> bool: return b < a
 def op_lte(b: num, a: num) -> bool: return b <= a
+## BOOLEAN LOGIC
 def op_and(b: bool, a: bool) -> bool: return b and a
 def op_or(b: bool, a: bool) -> bool: return b or a
 def op_not(x: bool) -> bool: return not x
@@ -43,21 +44,23 @@ def op_float_q(x: Any) -> bool: return isinstance(x, float)
 def op_list_q(x: Any) -> bool: return isinstance(x, list)
 def op_string_q(x: Any) -> bool: return isinstance(x, str)
 def op_boolean_q(x: Any) -> bool: return isinstance(x, bool)
+def op_symbol_q(x: Any) -> bool: return isinstance(x, bytes)
 ## LIST MANIPULATION
-def op_cons(b: Any, a: list) -> list: return [b] + a
+T = TypeVar('T', bound=Any)
+def op_cons(b: T, a: list[T]) -> list[T]: return [b] + a
 def op_append(b: Any, a: list) -> list: return a + [b]
 def op_remove(b: list, a: Any) -> list: return [x for x in b if x != a]
 def op_take(b: list, a: int) -> list: return b[:a]
 def op_drop(b: list, a: int) -> list: return b[a:]
 def op_uncons(x: list) -> tuple[Any, list]: return (x[0], x[1:])
 def op_concat(b: list, a: list) -> list: return b + a
-def op_reverse(x: list) -> list: return list(reversed(x))
-def op_first(x: list) -> Any: return x[0]
-def op_rest(x: list) -> list: return x[1:]
-def op_last(x: list) -> Any: return x[-1]
-def op_index(b: int, a: list) -> Any: return a[int(b)]
+def op_reverse(x: list[T]) -> list[T]: return list(reversed(x))
+def op_first(x: list[T]) -> T: return x[0]
+def op_rest(x: list[T]) -> list[T]: return x[1:]
+def op_last(x: list[T]) -> T: return x[-1]
+def op_index(b: int, a: list[T]) -> T: return a[int(b)]
 def op_member_q(b: Any, a: list | dict | set) -> bool: return b in a
-def op_length(x: Any) -> int: return len(x)
+def op_length(x: list | dict | set | str) -> int: return len(x)
 def op_sum(x: list) -> num: return sum(x)
 def op_product(x: list) -> num: return math.prod(x)
 # STACK OPERATIONS
