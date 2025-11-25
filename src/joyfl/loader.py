@@ -226,8 +226,8 @@ def get_stack_effects(*, fn: Callable, name: str = None) -> dict:
     meta = {
         'arity': (-2 if pass_stack else (-1 if (has_varargs and len(positional) == 0) else len(positional))),
         'valency': -1 if replace_stack else (0 if returns_none else (len(outputs) if returns_tuple else 1)),
-        'inputs': [] if pass_stack else list(reversed([_normalize_expected_type(p.annotation) for p in positional])),
-        'outputs': list(reversed(outputs)),
+        'inputs': [] if pass_stack else [_normalize_expected_type(p.annotation) for p in positional],
+        'outputs': list(outputs),
         'inputs_sym': inputs_sym,
         'outputs_sym': outputs_sym,
     }

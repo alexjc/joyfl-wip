@@ -120,7 +120,7 @@ def _stack_effect_to_meta(effect: dict | None) -> dict | None:
                 converted.append(TypeKey.from_name(type_name))
             else:
                 converted.append(Any)
-        return list(reversed(converted))
+        return converted
 
     inputs_sym, outputs_sym = effect.get('inputs', []), effect.get('outputs', [])
     return {

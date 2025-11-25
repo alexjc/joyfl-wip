@@ -3,9 +3,9 @@
 import sys
 import collections
 
-from typing import Any, TypeVar
+from typing import Any
 
-from .types import Operation, Stack, nil
+from .types import nil, Operation, Stack, validate_signature_inputs
 from .errors import JoyStackError
 from .library import Library
 from .formatting import show_program_and_stack, stack_to_list
@@ -36,25 +36,15 @@ def can_execute(op: Operation, stack: Stack) -> tuple[bool, str]:
         if head == 0:
             return False, f"`{op.name}` would divide by zero and cause a runtime exception."
 
-    if (eff := _operation_signature(op)) is None: return True, ""
+    if (eff := _operation_signature(op)) is None:
+        return True, ""
 
-    inputs = eff['inputs']
     items = stack_to_list(stack)
-    depth = len(items)
-    if depth < len(inputs):
-        need = len(inputs)
-        return False, f"`{op.name}` needs at least {need} item(s) on the stack, but {depth} available."
+    ok, msg = validate_signature_inputs(eff['inputs'], items, op.name)
+    if not ok:
+        return False, msg
 
-    # Type checks from top downward
-    for i, expected_type in enumerate(inputs):
-        if isinstance(expected_type, TypeVar): expected_type = expected_type.__bound__
-        if expected_type in (Any, None): continue
-        actual = items[i]
-        if not isinstance(actual, expected_type):
-            type_name = expected_type.__name__ if hasattr(expected_type, '__name__') else str(expected_type)
-            return False, f"`{op.name}` expects {type_name} at position {i+1} from top, got {type(actual).__name__}."
-
-    # Extra semantic guard for 'index' bounds when types look correct
+    # Extra semantic guard for 'index' bounds when types look correc
     if op.name == 'index' and len(items) >= 2 and isinstance(items[0], (list, str)) and isinstance(items[1], int):
         idx, seq = items[1], items[0]
         if not (0 <= int(idx) < len(seq)):
@@ -68,7 +58,7 @@ def validate_stack_before(op: Operation, stack: Stack) -> None:
         raise JoyStackError(check[1], joy_op=op, joy_token=op.name, joy_stack=stack)
 
 def validate_stack_after(op: Operation, before_stack: Stack, after_stack: Stack) -> None:
-    """Validate that runtime stack depth and output types match declared stack effects."""
+    """Validate that runtime stack depth and output types match declared stack effects (LTR convention)."""
     if (eff := _operation_signature(op)) is None: return
 
     n_inputs, n_outputs = eff['arity'], eff['valency']
@@ -89,8 +79,10 @@ def validate_stack_after(op: Operation, before_stack: Stack, after_stack: Stack)
     if base_after is not base_before:
         raise JoyStackError(f"`{op.name}` stack effect does not match defined {n_inputs} inputs / {n_outputs} outputs.", joy_op=op, joy_stack=after_stack)
 
-    for i, (actual, expected_type) in enumerate(zip(out_items, eff['outputs'])):
-        if expected_type in (Any, None): continue
+    # Validate output types incorrect order: out_items is TOS-first, outputs is BOS-first.
+    for i, (actual, expected_type) in enumerate(zip(out_items, reversed(eff['outputs']))):
+        if expected_type in (Any, None):
+            continue
         if not isinstance(actual, expected_type):
             atn, etn = type(actual).__name__, expected_type.__name__
             raise JoyStackError(f"`{op.name}` produced output {atn} but declared {etn} at position {i+1} from top.", joy_op=op, joy_stack=after_stack)

@@ -1,6 +1,6 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
-from typing import Literal
+from typing import Any, Literal, TypeVar
 from collections import namedtuple
 from dataclasses import dataclass
 
@@ -129,3 +129,31 @@ class StructMeta(type):
     def __instancecheck__(cls, instance):
         # Treat any StructInstance tagged with this struct's name as an instance.
         return isinstance(instance, StructInstance) and instance.typename == cls.name
+
+
+def validate_signature_inputs(expected: list[type], args: list[Any], name: str) -> tuple[bool, str]:
+    """Validate that arguments match expected input types, as used by the interpreter (for Operations)
+    and transformations (for Search).  The stack by convention, is left/bottom to right/top.
+    
+    Args:
+        expected: Expected types in Joy bottom-first order (left-to-right).
+        args:   Actual values in TOS-first order (args[0] = TOS).
+        name:   Name for error messages.
+    
+    Returns:
+        (True, "") if valid, (False, reason) if not.
+    """
+    if len(args) < len(expected):
+        return False, f"`{name}` needs at least {len(expected)} item(s), but {len(args)} available."
+    
+    # Pair TOS-first args with reversed bottom-first expected types
+    for i, (actual, expected_type) in enumerate(zip(args, reversed(expected))):
+        if isinstance(expected_type, TypeVar):
+            expected_type = expected_type.__bound__
+        if expected_type in (Any, None):
+            continue
+        if not isinstance(actual, expected_type):
+            type_name = getattr(expected_type, '__name__', str(expected_type))
+            return False, f"`{name}` expects {type_name} at position {i+1} from top, got {type(actual).__name__}."
+    
+    return True, ""
