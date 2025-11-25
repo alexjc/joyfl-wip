@@ -102,6 +102,61 @@ def _is_stack_annotation(annotation: Any) -> bool:
     return False
 
 
+def _typevar_constraint(tv: TypeVar) -> str | None:
+    """Extract type constraint from TypeVar bound, or None if unconstrained."""
+    if (bound := tv.__bound__) in (None, Any):
+        return None
+    return _get_type_name(bound)
+
+def _build_symbolic_type(annotation: Any) -> dict:
+    """Build symbolic type information from Python annotation."""
+    # Direct TypeVar (e.g., T or T with bound)
+    if isinstance(annotation, TypeVar) and (name := annotation.__name__):
+        return {'kind': 'typevar', 'label': name, 'type': _typevar_constraint(annotation)}
+
+    # Concrete type or union type (e.g., int, num = int | float | Fraction)
+    if (type_name := _get_type_name(annotation)):
+        return {'kind': 'type', 'type': type_name}
+
+    # Generic container types (e.g., list[T] or list[int])
+    if (origin := get_origin(annotation)) is list:
+        if (args := get_args(annotation)) and (elem := args[0]):
+            if isinstance(elem, TypeVar):
+                return {
+                    'kind': 'container', 'container_type': 'list',
+                    'element': {'kind': 'typevar', 'label': elem.__name__, 'type': _typevar_constraint(elem)}
+                }
+            # Concrete element type (e.g., list[int]) - recurse
+            return {'kind': 'container', 'container_type': 'list', 'element': _build_symbolic_type(elem)}
+
+    # Unsupported generic containers (dict, set, etc.)
+    if origin is not None:
+        raise NotImplementedError(f"Unsupported generic container: {origin}")
+
+    # Fallback - return empty dict (will use runtime type)
+    return {}
+
+
+def _get_type_name(annotation: Any) -> str | None:
+    """Extract a type name from an annotation for symbolic representation."""
+    # Check for union types (int | float | Fraction)
+    if isinstance(annotation, type(int | float)):  # UnionType
+        if (args := get_args(annotation)):
+            # For num type (int | float | Fraction), return 'num'
+            if all(t in (int, float) or (getattr(t, '__name__', None) == 'Fraction') for t in args):
+                return 'num'
+            # For other unions, generate compound name (e.g., "list|dict|set")            
+            if (names := [_get_type_name(t) or t.__name__.lower() for t in args if hasattr(t, '__name__')]):
+                return '|'.join(names)
+    
+    # Direct type
+    if isinstance(annotation, type):
+        type_names = {int: 'int', float: 'float', bool: 'bool', str: 'str', list: 'list'}
+        return type_names.get(annotation) or (annotation.__name__.lower() if hasattr(annotation, '__name__') else None)
+    
+    return None
+
+
 def get_stack_effects(*, fn: Callable, name: str = None) -> dict:
     """Parse the type annotations from Python to determine the stack effects in Joy.
 
@@ -155,10 +210,25 @@ def get_stack_effects(*, fn: Callable, name: str = None) -> dict:
     pass_stack = (len(positional) == 1 and _is_stack_annotation(positional[0].annotation) and not has_varargs)
     replace_stack = (name in {'unstack'}) or allow_variadic_stack  # Allow stack replacement semantics.
 
+    # Build symbolic signatures from TypeVars
+    inputs_sym, outputs_sym = [], []
+    if not pass_stack:
+        for p in reversed(positional):
+            sym_info = _build_symbolic_type(p.annotation)
+            inputs_sym.append(sym_info)
+    
+    if not returns_none and not replace_stack:
+        raw_ret = get_args(ret_ann) if returns_tuple else (ret_ann,)
+        for ret_type in reversed(raw_ret):
+            sym_info = _build_symbolic_type(ret_type)
+            outputs_sym.append(sym_info)
+
     meta = {
         'arity': (-2 if pass_stack else (-1 if (has_varargs and len(positional) == 0) else len(positional))),
         'valency': -1 if replace_stack else (0 if returns_none else (len(outputs) if returns_tuple else 1)),
         'inputs': [] if pass_stack else list(reversed([_normalize_expected_type(p.annotation) for p in positional])),
         'outputs': list(reversed(outputs)),
+        'inputs_sym': inputs_sym,
+        'outputs_sym': outputs_sym,
     }
     return meta
