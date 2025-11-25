@@ -21,7 +21,7 @@ def load_builtins_library():
     constants = {'true': True, 'false': False}
     factories = {}
     aliases = {
-        '+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '%': 'rem',
+        '+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '//': 'idiv', '%': 'rem',
         '>': 'gt', '>=': 'gte', '<': 'lt', '<=': 'lte',
         '=': 'equal?', '!=': 'differ?', 'size': 'length',
     }

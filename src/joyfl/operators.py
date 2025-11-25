@@ -22,6 +22,7 @@ def op_min(b: num, a: num) -> num: return min(b, a)
 def op_max(b: num, a: num) -> num: return max(b, a)
 def op_mul(b: num, a: num) -> num: return b * a
 def op_div(b: num, a: num) -> num: return b / a
+def op_idiv(b: num, a: num) -> int: return int(b // a)
 def op_rem(b: num, a: num) -> num: return b % a
 ## COMPARATORS
 def op_equal_q(b: Any, a: Any) -> bool: return b == a
@@ -85,9 +86,11 @@ def op_raise_b(x: Any) -> None: raise x
 # STRING MANIPULATION
 def op_str_concat(b: str, a: str) -> str: return str(b) + str(a)
 def op_str_contains_q(b: str, a: str) -> bool: return str(b) in str(a)
+def op_str_starts_with_q(b: str, a: str) -> bool: return str(a).startswith(str(b))
 def op_str_split(b: str, a: str) -> Any: return a.split(b)
 def op_str_cast(x: Any) -> str: return str(x)
 def op_str_join(b: list, a: str) -> str: return a.join(b)
+def op_symbol_name(x: symbol) -> str: return x.decode('ascii')
 # DICTIONARIES (mutable)
 def op_dict_new() -> dict: return {}
 def op_dict_q(d: dict) -> bool: return isinstance(d, dict)
