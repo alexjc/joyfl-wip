@@ -62,7 +62,7 @@ LSQB: "["
 RSQB: "]"
 LBRACE: "{"
 RBRACE: "}"
-PARAM: /[a-z]+(?::[A-Za-z\-_]+)?/
+PARAM: /[a-z][a-z0-9\-']*(?::[A-Za-z]+)?/
 NAME: /[^\s\[\]\\(\){\}\;\.\#\|A-Z](?:[A-Za-z0-9!+\-=<>_,?.]*[A-Za-z0-9!+\-=<>_,?])?/
 
 // WHITESPACE
