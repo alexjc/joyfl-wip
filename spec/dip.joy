@@ -1,0 +1,48 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   execute a quotation one level below the top of the stack, restoring that item afterwards
+#   category:   combinator
+#   signature:  x:any [p]:list -- any* x:any
+#   source:     builtin (combinators.py)
+#
+[
+    [   test.describe "dip runs quotation under top item and restores it"
+
+        1 2
+        [10 add]
+        :dip
+        2 expect-equal
+        11 expect-equal
+    ]
+
+    [   test.describe "dip preserves deeper stack items"
+
+        100 1 2
+        [10 add]
+        :dip
+        2 expect-equal
+        11 expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "dip on empty stack raises JoyStackError"
+
+        [ dip ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "dip with single item raises JoyStackError"
+
+        [ 1 dip ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "dip requires quotation as top stack item"
+
+        [ 1 2 3 dip ]
+        'JoyStackError
+        expect-raises
+    ]
+].

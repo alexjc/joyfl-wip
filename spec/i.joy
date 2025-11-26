@@ -1,0 +1,40 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   execute a quotation on top of the stack in the current context
+#   category:   combinator
+#   signature:  [p]:list -- any*
+#   source:     builtin (combinators.py)
+#
+[
+    [   test.describe "i executes quotation on current stack"
+
+            1 2
+            [ add ]
+            :i
+            3 expect-equal
+    ]
+
+    [   test.describe "i preserves items below the quotation"
+
+        10 20
+        [ dup ]
+        :i
+        20 expect-equal
+        20 expect-equal
+        10 expect-equal
+    ]
+
+    [   test.describe "i on empty stack raises JoyStackError"
+
+        [ i ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "i requires quotation as top stack item"
+
+        [ 1 i ]
+        'JoyStackError
+        expect-raises
+    ]
+].

@@ -1,0 +1,23 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   capture current stack contents as a list without modifying the stack
+#   category:   stack-operation
+#   signature:  -- stack:list
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "stack captures full stack and preserves items"
+
+        10 20
+        stack
+        [20 10] expect-equal
+        20 expect-equal
+        10 expect-equal
+    ]
+
+    [   test.describe "stack on empty stack returns empty list"
+
+        stack
+        [] expect-equal
+    ]
+].

@@ -1,0 +1,30 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   compute the size of the current stack without modifying it
+#   category:   stack-operation
+#   signature:  -- n:int
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "stack-size on empty stack returns zero"
+
+        stack-size
+        0 expect-equal
+    ]
+
+    [   test.describe "stack-size counts items on non-empty stack"
+
+        1 2 3
+        stack-size
+        3 expect-equal
+    ]
+
+    [   test.describe "stack-size does not consume stack items"
+
+        1 2
+        stack-size
+        2 expect-equal
+        2 expect-equal
+        1 expect-equal
+    ]
+].

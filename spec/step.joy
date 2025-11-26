@@ -1,0 +1,65 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   apply a quotation to each element of a list, left-to-right
+#   category:   combinator
+#   signature:  [xs]:list [p]:list -- any*
+#   source:     builtin (combinators.py)
+#
+[
+    [   test.describe "step applies quotation to each list element"
+
+        [1 2 3]
+        [dup]
+        :step
+        3 expect-equal
+        3 expect-equal
+        2 expect-equal
+        2 expect-equal
+        1 expect-equal
+        1 expect-equal
+    ]
+
+    [   test.describe "step works with non-trivial program"
+
+        [1 2 3]
+        [2 mul]
+        :step
+        6 expect-equal
+        4 expect-equal
+        2 expect-equal
+    ]
+
+    [   test.describe "step on empty list leaves stack unchanged"
+
+        42
+        []
+        [dup]
+        :step
+        42 expect-equal
+    ]
+
+    [   test.describe "step on empty stack raises JoyStackError"
+
+        [ step ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "step with missing program raises JoyStackError"
+
+        [ [1 2 3] step ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "step requires list and quotation types"
+
+        [ 1 [dup] :step ]
+        'JoyStackError
+        expect-raises
+
+        [ [1 2 3] 99 :step ]
+        'JoyStackError
+        expect-raises
+    ]
+].

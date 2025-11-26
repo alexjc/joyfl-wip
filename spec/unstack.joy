@@ -1,0 +1,32 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   replace the current stack with items from a list
+#   category:   stack-operation
+#   signature:  stack:list -- any*
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "unstack restores stack produced by stack"
+
+        1 2 3
+        stack
+        unstack
+        3 expect-equal
+        2 expect-equal
+        1 expect-equal
+    ]
+
+    [   test.describe "unstack on empty stack raises JoyStackError"
+
+        [ unstack ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "unstack rejects non-list argument with JoyStackError"
+
+        [ 1 unstack ]
+        'JoyStackError
+        expect-raises
+    ]
+].

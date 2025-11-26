@@ -1,0 +1,30 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   identity operation that returns its input unchanged
+#   category:   stack-operation
+#   signature:  x:any -- x:any
+#   source:     builtin (operators.py)
+#
+[
+    [   test.describe "id returns the same value on top of the stack"
+
+        11
+        id
+        11 expect-equal
+    ]
+
+    [   test.describe "id preserves items below the top of the stack"
+
+        1 2
+        id
+        2 expect-equal
+        1 expect-equal
+    ]
+
+    [   test.describe "id on empty stack raises JoyStackError"
+
+        [ id ]
+        'JoyStackError
+        expect-raises
+    ]
+].
