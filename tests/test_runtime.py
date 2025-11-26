@@ -173,7 +173,7 @@ def test_runtime_python_module_multiple_operations(tmp_path, monkeypatch):
         "def op_second(x: int) -> int:\n"
         "    return x * 2\n"
         "\n"
-        "__operators__ = [op_first, op_second]\n"
+        "__joy_operators__ = [op_first, op_second]\n"
     )
 
     _write_py_module(tmp_path, "rtmod", module_source)
@@ -202,7 +202,7 @@ def test_library_python_module_multiple_operations(tmp_path, monkeypatch):
         "def op_second(x: int) -> int:\n"
         "    return x * 2\n"
         "\n"
-        "__operators__ = [op_first, op_second]\n"
+        "__joy_operators__ = [op_first, op_second]\n"
     )
 
     _write_py_module(tmp_path, "rtmod2", module_source)

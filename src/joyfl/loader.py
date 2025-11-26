@@ -1,6 +1,7 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
 import os
+import sys
 import inspect
 from pathlib import Path
 from types import UnionType
@@ -40,38 +41,55 @@ def iter_joy_module_candidates(module_name: str):
 def load_library_module(ns: str, meta: dict):
     if ns in _LIB_MODULES: return _LIB_MODULES[ns]
 
-    # Search packaged libs in this package and parents; underscore-only (_{ns}.py).
+    # Search packaged libs in this package and parents; underscore-only (_{ns}.py or _{ns}/).
     roots = (base := Path(__file__).resolve().parent, *base.parents[:2])
     candidates = [(str(d / 'libs' / f'_{ns}.py'), f"joyfl.libs._{ns}") for d in roots]
+    candidates += [(str(d / 'libs' / f'_{ns}' / '__init__.py'), f"joyfl.libs._{ns}") for d in roots]
 
-    # Also search JOY_PATH entries (plain-only {ns}.py).
+    # Also search JOY_PATH entries (plain-only {ns}.py or whole-folder ./{ns}/).
     candidates += [(str(p / f'{ns}.py'), f"joyfl.ext.{ns}") for p in _resolve_joy_paths()]
+    candidates += [(str(p / ns / '__init__.py'), f"joyfl.ext.{ns}") for p in _resolve_joy_paths()]
 
     import importlib.util as importer
     for mod_path, mod_name in candidates:
         if not os.path.isfile(mod_path): continue
-        spec, module = importer.spec_from_file_location(mod_name, mod_path), None
+        locations = [os.path.dirname(mod_path)] if mod_path.endswith('__init__.py') else None
+        spec, module = importer.spec_from_file_location(mod_name, mod_path, submodule_search_locations=locations), None
         if spec and spec.loader:
             module = importer.module_from_spec(spec)
+            # Register in sys.modules before exec to enable relative imports within packages.
+            sys.modules[mod_name] = module
             try:
                 spec.loader.exec_module(module)
             except (SyntaxError, ImportError, Exception) as e:
+                sys.modules.pop(mod_name, None)
                 raise JoyModuleError(str(e), filename=mod_path, joy_token=ns, joy_meta=meta) from e
         _LIB_MODULES[ns] = module
         return module
     raise JoyModuleError(f"Module `{ns}` not found.", joy_token=ns, joy_meta=meta)
 
 
-def iter_module_operators(ns: str, *, meta: dict | None = None):
-    """Yield `(joy_name, py_function)` pairs for all operators in a module for bulk loading."""
+def _get_module_registry(ns: str, attr: str, expected_type: type, *, meta: dict | None = None):
+    """Get a registry attribute (__joy_operators__ or __joy_factories__) from a module."""
     py_module = load_library_module(ns, meta=meta)
-    # Require explicit operator registry on module; otherwise treat as module error.
-    if not hasattr(py_module, '__operators__') or not isinstance(getattr(py_module, '__operators__'), list):
-        raise JoyModuleError(f"Module `{ns}` is missing operator registry `__operators__`.", joy_token=f"{ns}", joy_meta=meta)
-    # All modules require an explicit registry of operators defined.
-    for w in getattr(py_module, '__operators__', []):
-        if not (py_name := getattr(w, '__name__', '')): continue
-        yield get_joy_name(py_name), w
+    registry = getattr(py_module, attr, None)
+    if registry is None:
+        return expected_type()  # Empty list or dict.
+    if not isinstance(registry, expected_type):
+        raise JoyModuleError(f"Module `{ns}` has `{attr}` but it's not a {expected_type.__name__}.", joy_token=ns, joy_meta=meta)
+    return registry
+
+
+def iter_module_operators(ns: str, *, meta: dict | None = None):
+    """Yield `(joy_name, py_function)` pairs for all operators in a module."""
+    for w in _get_module_registry(ns, '__joy_operators__', list, meta=meta):
+        if (py_name := getattr(w, '__name__', '')):
+            yield get_joy_name(py_name), w
+
+
+def iter_module_factories(ns: str, *, meta: dict | None = None):
+    """Yield `(name, factory)` pairs for all factories in a module."""
+    yield from _get_module_registry(ns, '__joy_factories__', dict, meta=meta).items()
 
 
 def _normalize_expected_type(tp):

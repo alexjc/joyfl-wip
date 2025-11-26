@@ -32,6 +32,6 @@ def op_exit_b(retval: int) -> None:
     sys.exit(retval)
 
 
-__operators__ = [ op_options, op_exit_b ]
+__joy_operators__ = [ op_options, op_exit_b ]
 
 if os.environ.get('JOY_DEBUG'): print('LOADED libs/_cmd.py')

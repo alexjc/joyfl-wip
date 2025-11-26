@@ -11,7 +11,7 @@ from .library import Library
 from .builtins import load_builtins_library
 from .formatting import list_to_stack as _list_to_stack, stack_to_list as _stack_to_list
 from .interpreter import interpret, can_execute, interpret_step
-from .loader import iter_joy_module_candidates, iter_module_operators
+from .loader import iter_joy_module_candidates, iter_module_operators, iter_module_factories
 
 
 class Runtime:
@@ -36,6 +36,8 @@ class Runtime:
     def _py_loader(self, lib: Library, ns: str, op: str, meta: dict | None) -> None:
         for joy_name, py_fn in iter_module_operators(ns, meta=meta):
             lib.add_function(f"{ns}.{joy_name}", py_fn)
+        for name, factory in iter_module_factories(ns, meta=meta):
+            lib.factories[f"{ns}.{name}"] = factory
         lib.mark_module_loaded(ns)
 
 

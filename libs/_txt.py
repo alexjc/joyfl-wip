@@ -25,6 +25,6 @@ def op_format(values: list, template: str) -> str:
         raise JoyValueError(f"Invalid format string: {e}")
 
 
-__operators__ = [op_format]
+__joy_operators__ = [ op_format ]
 
 if os.environ.get('JOY_DEBUG'): print('LOADED libs/_txt.py')

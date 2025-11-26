@@ -27,6 +27,6 @@ def op_exec_file_b(filename: str) -> object:
     return res[-1]
 
 
-__operators__ = [ op_list_files_b, op_exec_file_b ]
+__joy_operators__ = [ op_list_files_b, op_exec_file_b ]
 
 if os.environ.get('JOY_DEBUG'): print('LOADED libs/_os.py')
