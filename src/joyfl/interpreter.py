@@ -11,7 +11,7 @@ from .library import Library
 from .formatting import show_program_and_stack, stack_to_list
 
 
-def _operation_signature(op: Operation):
+def _get_operation_signature(op: Operation):
     if op.type == Operation.FUNCTION and hasattr(op.ptr, '__joy_meta__'):
         return op.ptr.__joy_meta__
     if isinstance(op.meta, dict) and 'signature' in op.meta:
@@ -36,10 +36,16 @@ def can_execute(op: Operation, stack: Stack) -> tuple[bool, str]:
         if head == 0:
             return False, f"`{op.name}` would divide by zero and cause a runtime exception."
 
-    if (eff := _operation_signature(op)) is None:
+    if (eff := _get_operation_signature(op)) is None:
         return True, ""
 
     items = stack_to_list(stack)
+    # Handle important quotation-types: e.g. predicate must return bool.
+    for sym, val in zip(reversed(eff['inputs_sym']), items):
+        assert isinstance(sym, dict)
+        if val == [] and sym.get('type') == 'Predicate':
+            return False, f"`{op.name}` predicate cannot be empty, got []."
+
     ok, msg = validate_signature_inputs(eff['inputs'], items, op.name)
     if not ok:
         return False, msg
@@ -59,7 +65,7 @@ def validate_stack_before(op: Operation, stack: Stack) -> None:
 
 def validate_stack_after(op: Operation, before_stack: Stack, after_stack: Stack) -> None:
     """Validate that runtime stack depth and output types match declared stack effects (LTR convention)."""
-    if (eff := _operation_signature(op)) is None: return
+    if (eff := _get_operation_signature(op)) is None: return
 
     n_inputs, n_outputs = eff['arity'], eff['valency']
     if n_outputs < 0: return
