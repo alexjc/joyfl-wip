@@ -10,6 +10,7 @@ DEFINE
 
     Predicate       ::  (X.. -- X.. bool) ;
     Checker         ::  (X.. -- Y.. bool) ;
+    Stepper         ::  (S.. Y -- S.. Y) ;
     Quotation       ::  (Y.. -- Z..) ;
 
 
@@ -72,14 +73,14 @@ DEFINE
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # Control Flow
 
-   (*  `choice` — selects one of the two top stack items based on a boolean flag.
+   (*  `choice` — selects one of the two top stack items based on a boolean or integer flag.
     *
     *   EXAMPLE:    true 'first 'second choice 'first equal? .
     *   NOTE:       This implementation makes a list and indexes it with bool as int.
     *)
-    choice          :   (flag  x y         -- result)
-                    #    false x y choice  →  y
-                    #    true  x y choice  →  x
+    choice          :   (flag:int x y -- result)
+                    #    false    x y choice  →  y
+                    #    true     x y choice  →  x
                     ==  swap pair index ;
 
    (*  `branch` — selects and executes one of two quotations based on a boolean.
@@ -113,7 +114,7 @@ DEFINE
     *               After a quotation runs, we need to distinguish new results from preserved items.
     *               This captures the full stack snapshot while keeping the preserved list for comparison.
     *)
-    _stack-and-keep-one : ( [preserved] -- [stack] [preserved] )
+    _stack-and-keep-one :   ([preserved] -- [stack] [preserved])
                         ==  dup                     # duplicate the preserved list for later use
                             [pop stack] dip ;       # capture entire stack while keeping preserved list
     
@@ -126,11 +127,11 @@ DEFINE
     *               both results and preserved items) against the preserved list baseline to compute
     *               how many results were produced, then extracts just those results.
     *)
-    _separate-results : ( [results] [preserved] -- [results] [preserved] )
-                      ==  dup size [swap] dip   # compute number of preserved items
-                          over size swap -      # calculate result count = total - preserved
-                          take                  # extract just the result items
-                          swap ;                # reorder to [results] [preserved]
+    _separate-results   :   ([results] [preserved] -- [results] [preserved])
+                        ==  dup size [swap] dip   # compute number of preserved items
+                            over size swap -      # calculate result count = total - preserved
+                            take                  # extract just the result items
+                            swap ;                # reorder to [results] [preserved]
 
    (*  `unary` — executes a quotation with one argument, preserving the rest of the stack.
     *
@@ -139,7 +140,7 @@ DEFINE
     *               Uses _separate-results helper to separate results from preserved stack items.
     *)
     
-    unary           : ( x [p] -- [r] )
+    unary           :   (x [p] -- [r])
                     ==  stack rest rest               # save preserved items (excluding arg and quotation)
                         [i] dip                       # run quotation on argument, keep preserved list safe
                         _stack-and-keep-one           # get snapshot of all stack items
@@ -169,6 +170,15 @@ DEFINE
                         [dup dip loop]
                         [pop]
                         :branch ;
+
+   (*  `times` — executes a quotation n times.
+    *
+    *   EXAMPLE:    1 [2 *] 5 times 32 equal? .
+    *   NOTE:       If n is 0, the quotation is not executed.
+    *               Order is [quot] n (like Factor), not n [quot] (like Joy0).
+    *)
+    times           :   ([body:Quotation] n:int -- )
+                    ==  dup 0 = [pop pop] [[dup [i] dip] dip pred times] branch ;
 
    (*  `branch-cons` — conditionally cons an item onto one of two lists based on a flag.
     *)
@@ -206,7 +216,11 @@ DEFINE
     *   EXAMPLE:    5 [0 =] [pop 1] [dup 1 -] [*] linrec 120 equal? .
     *   NOTE:       Pattern: [if] [then] [rec1] [rec2] linrec. Executes rec1 before recursion, rec2 after.
     *)
-    linrec          ==  [linrec] cons4
+    PrefixStepper   :: (X.. -- Z.. X..) ;
+    SuffixStepper   :: (Z.. Y.. -- Y..) ;
+
+    linrec          :   (X.. [cond:Checker] [then:Quotation] [rec1:PrefixStepper] [rec2:SuffixStepper] -- Y..)
+                    ==  [linrec] cons4
                         dup
                         uncons swapd
                         uncons swapd
@@ -219,7 +233,8 @@ DEFINE
     *   EXAMPLE:    5 0 [0 =] [pop] [dup 1 - swap 1 + swap] tailrec 5 equal? .
     *   NOTE:       Pattern: [if] [then] [rec] tailrec. Equivalent to [] linrec, no post-recursion operation.
     *)
-    tailrec         ==  [] :linrec ;
+    tailrec         :   (X.. [cond:Checker] [then:Quotation] [rec:Stepper] -- Y..)
+                    ==  [] :linrec ;
 
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -245,7 +260,10 @@ DEFINE
     *   EXAMPLE:    [1 2 3 4] 0 [+] foldl 10 equal? .
     *   NOTE:       Processes list left-to-right, passing accumulator and each element to the quotation.
     *)
-    foldl           ==  swapd                                           # get the ACCUMULATOR, VALUES in order on the stack
+    FoldingQuot     ::  (accum:Y elem:X -- result:Y) ;
+
+    foldl           :   ([elems:X] accum:Y [body:FoldingQuot] -- result:Y)
+                    ==  swapd                                           # get the ACCUMULATOR, VALUES in order on the stack
                         [dup first swapd] swoncat [swap rest] concat    # assemble a dynamic list of instructions for each step
                         [null?] swap [pop] swap                         # reorder parameters for tailrec's benefit
                         :tailrec ;
@@ -255,9 +273,9 @@ DEFINE
     *   EXAMPLE:    [1 2 3] [dup *] map [1 4 9] equal? .
     *   NOTE:       Preserves list order, quotation executed once per element with results accumulated.
     *)
-    MappingQuot     ::  (X -- Y) ;
+    MappingQuot     ::  (elem:X -- result:Y) ;
 
-    map             :  ([values:X] [body:MappingQuot] -- [result:Y])
+    map             :   ([elems:X] [body:MappingQuot] -- [results:Y])
                     ==  [] rollup                                       # make a new ACCUMULATOR, and order it before VALUES
                         [dup first] swoncat                             # assemble a dynamic list of instructions for each step
                         [swap [swappend] :dip rest] concat              # -> [dup first PREDICATES swap [swappend] dip rest]
@@ -269,7 +287,8 @@ DEFINE
     *   EXAMPLE:    [1 2 3 4 5] [3 <] split pair [[1 2] [3 4 5]] equal? .
     *   NOTE:       Maintains relative order within each partition, processes entire input list.
     *)
-    split           ==  [[] []] :dipd
+    split           :   ([items:X] [pred:Predicate] -- [selected:X] [rejected:X])
+                    ==  [[] []] :dipd
                         [dup first dup] swoncat [rolldown [branch-append] :dip rest] concat
                         [null?] swap [pop swap] swap
                         :tailrec ;
@@ -278,7 +297,8 @@ DEFINE
     *
     *   EXAMPLE:    [1 2 3 4 5] [3 <] filter [1 2] equal? .
     *)
-    filter          ==  [split] :i pop ;
+    filter          :   ([items:X] [pred:Predicate] -- [filtered:X])
+                    ==  [split] :i pop ;
 
    (*  `from-to` — generates list of integers from start to end with custom list builder quotation.
     *
