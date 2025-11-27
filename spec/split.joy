@@ -1,0 +1,151 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   partition list into two lists based on predicate, true matches first, false second
+#   category:   higher-order
+#   signature:  [xs]:list [pred]:list -- [true-matches]:list [false-matches]:list
+#   source:     standard-library (stdlib.joy)
+#
+#   NOTE: Empty predicate [] is rejected with clear error message:
+#         "`split` predicate cannot be empty, got []."
+#
+[
+    [   test.describe "split with empty predicate raises error"
+
+        # joyfl rejects empty predicates with clear error message.
+        [ [1 2 3] [] :split ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "split partitions by predicate"
+
+        [1 2 3 4 5]
+        [3 <]
+        :split
+        # false matches (3 >=) on top, true matches (< 3) below
+        [3 4 5] expect-equal
+        [1 2] expect-equal
+    ]
+
+    [   test.describe "split on empty list returns two empty lists"
+
+        []
+        [3 <]
+        :split
+        [] expect-equal
+        [] expect-equal
+    ]
+
+    [   test.describe "split when all elements match predicate"
+
+        [1 2 3]
+        [10 <]
+        :split
+        [] expect-equal
+        [1 2 3] expect-equal
+    ]
+
+    [   test.describe "split when no elements match predicate"
+
+        [1 2 3]
+        [0 <]
+        :split
+        [1 2 3] expect-equal
+        [] expect-equal
+    ]
+
+    [   test.describe "split even and odd numbers"
+
+        [1 2 3 4 5 6]
+        [2 rem 0 =]
+        :split
+        # odds on top, evens below
+        [1 3 5] expect-equal
+        [2 4 6] expect-equal
+    ]
+
+    [   test.describe "split positive and non-positive"
+
+        [-2 -1 0 1 2 3]
+        [0 >]
+        :split
+        [-2 -1 0] expect-equal
+        [1 2 3] expect-equal
+    ]
+
+    [   test.describe "split preserves order within partitions"
+
+        [5 1 4 2 3]
+        [3 <]
+        :split
+        [5 4 3] expect-equal
+        [1 2] expect-equal
+    ]
+
+    [   test.describe "split single element matching"
+
+        [42]
+        [40 >]
+        :split
+        [] expect-equal
+        [42] expect-equal
+    ]
+
+    [   test.describe "split single element not matching"
+
+        [42]
+        [50 >]
+        :split
+        [42] expect-equal
+        [] expect-equal
+    ]
+
+    [   test.describe "split preserves deeper stack items"
+
+        100
+        [1 2 3 4 5]
+        [3 <]
+        :split
+        [3 4 5] expect-equal
+        [1 2] expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "split can be paired for equality check"
+
+        [1 2 3 4 5]
+        [3 <]
+        :split
+        pair
+        [[1 2] [3 4 5]] expect-equal
+    ]
+
+    [   test.describe "split on empty stack raises JoyStackError"
+
+        [ split ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "split with missing predicate raises JoyStackError"
+
+        [ [1 2 3] split ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "split with non-list input raises JoyStackError"
+
+        [ 123 [3 <] :split ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "split with non-list predicate raises JoyStackError"
+
+        [ [1 2 3] 99 :split ]
+        'JoyStackError
+        expect-raises
+    ]
+].
+

@@ -1,0 +1,104 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   execute a quotation n times
+#   category:   higher-order
+#   signature:  [body]:list n:int -- X..
+#   source:     standard-library (stdlib.joy)
+#
+#   NOTE: joyfl uses "[quot] n" order (like Factor), not "n [quot]"" (like Joy0).
+#       * Joy0:  1 10 [2 *] times
+#       * joyfl: 1 [2 *] 10 times
+#
+[
+    [   test.describe "times executes quotation n times"
+
+        1
+        [2 *] 5
+        :times
+        32 expect-equal
+    ]
+
+    [   test.describe "times with zero iterations does nothing"
+
+        1
+        [succ] 0
+        :times
+        1 expect-equal
+    ]
+
+    [   test.describe "times with empty quotation preserves stack"
+
+        1
+        [] 10
+        :times
+        1 expect-equal
+    ]
+
+    [   test.describe "times accumulates results"
+
+        0
+        [1 +] 3
+        :times
+        3 expect-equal
+    ]
+
+    [   test.describe "times with single iteration"
+
+        5
+        [10 +] 1
+        :times
+        15 expect-equal
+    ]
+
+    [   test.describe "times fibonacci pattern"
+
+        # fib(10) = 55. Stack: older newer, step: swap over + → newer (older+newer)
+        0 1 [swap over +] 10 :times pop
+        55 expect-equal
+    ]
+
+    [   test.describe "times preserves deeper stack items"
+
+        100
+        0 [1 +] 3
+        :times
+        3 expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "times with large count"
+
+        0
+        [1 +] 100
+        :times
+        100 expect-equal
+    ]
+
+    [   test.describe "times on empty stack raises JoyStackError"
+
+        [ times ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "times with missing count raises JoyStackError"
+
+        [ [1 +] times ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "times with non-integer count raises JoyStackError"
+
+        [ [1 +] 'three :times ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "times with non-list quotation raises JoyStackError"
+
+        [ 99 3 :times ]
+        'JoyStackError
+        expect-raises
+    ]
+].

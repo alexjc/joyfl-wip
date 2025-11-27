@@ -1,0 +1,144 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   evaluate predicate for each item, keep those that return true
+#   category:   higher-order
+#   signature:  [xs]:list [pred]:list -- [filtered]:list
+#   source:     standard-library (stdlib.joy)
+#
+[
+    [   test.describe "filter keeps elements matching predicate"
+
+        [1 2 3 4 5]
+        [3 <]
+        :filter
+        [1 2] expect-equal
+    ]
+
+    [   test.describe "filter removes elements not matching predicate"
+
+        [1 2 3 4 5]
+        [3 >]
+        :filter
+        [4 5] expect-equal
+    ]
+
+    [   test.describe "filter on empty list returns empty list"
+
+        []
+        [3 <]
+        :filter
+        [] expect-equal
+    ]
+
+    [   test.describe "filter when all elements match"
+
+        [1 2 3]
+        [10 <]
+        :filter
+        [1 2 3] expect-equal
+    ]
+
+    [   test.describe "filter when no elements match"
+
+        [1 2 3]
+        [0 <]
+        :filter
+        [] expect-equal
+    ]
+
+    [   test.describe "filter with empty predicate raises error"
+
+        # Joy0 allows empty predicate [] which keeps all elements.
+        # joyfl rejects empty predicates with clear error message.
+        [ [1 2 3] [] :filter ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "filter even numbers"
+
+        [1 2 3 4 5 6 7 8]
+        [2 rem 0 =]
+        :filter
+        [2 4 6 8] expect-equal
+    ]
+
+    [   test.describe "filter odd numbers"
+
+        [1 2 3 4 5 6 7 8]
+        [2 rem 0 differ?]
+        :filter
+        [1 3 5 7] expect-equal
+    ]
+
+    [   test.describe "filter positive numbers"
+
+        [-3 -1 0 2 5 -4]
+        [0 >]
+        :filter
+        [2 5] expect-equal
+    ]
+
+    [   test.describe "filter non-zero numbers"
+
+        [0 1 0 2 0 3 0]
+        [0 differ?]
+        :filter
+        [1 2 3] expect-equal
+    ]
+
+    [   test.describe "filter preserves order"
+
+        [5 1 4 2 3]
+        [3 <]
+        :filter
+        [1 2] expect-equal
+    ]
+
+    [   test.describe "filter 1-10 keeping less than 5 (Joy0 pattern)"
+
+        [1 2 3 4 5 6 7 8 9 10]
+        [5 <]
+        :filter
+        [1 2 3 4] expect-equal
+    ]
+
+    [   test.describe "filter preserves deeper stack items"
+
+        100
+        [1 2 3 4 5]
+        [3 <]
+        :filter
+        [1 2] expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "filter on empty stack raises JoyStackError"
+
+        [ filter ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "filter with missing predicate raises JoyStackError"
+
+        [ [1 2 3] filter ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "filter with non-list input raises JoyStackError"
+
+        [ 123 [3 <] :filter ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "filter with non-list predicate raises JoyStackError"
+
+        [ [1 2 3] 99 :filter ]
+        'JoyStackError
+        expect-raises
+    ]
+].
+

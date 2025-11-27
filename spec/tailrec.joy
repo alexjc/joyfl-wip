@@ -1,0 +1,100 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   tail recursion combinator with three quotations [if] [then] [rec]
+#   category:   higher-order
+#   signature:  X.. [if]:list [then]:list [rec]:list -- Y..
+#   source:     standard-library (stdlib.joy)
+#
+[
+    [   test.describe "tailrec base case terminates immediately"
+
+        0
+        [0 =] ['done] [1 -]
+        :tailrec
+        'done expect-equal
+    ]
+
+    [   test.describe "tailrec recurses until base case"
+
+        5
+        [0 =] ['done] [1 -]
+        :tailrec
+        'done expect-equal
+    ]
+
+    [   test.describe "tailrec countdown to zero"
+
+        3
+        [0 =] [] [1 -]
+        :tailrec
+        0 expect-equal
+    ]
+
+    [   test.describe "tailrec gcd algorithm"
+
+        # gcd(48, 18) = 6
+        48 18
+        [0 =] [pop] [dup rollup rem]
+        :tailrec
+        6 expect-equal
+    ]
+
+    [   test.describe "tailrec gcd of 12 and 8"
+
+        12 8
+        [0 =] [pop] [dup rollup rem]
+        :tailrec
+        4 expect-equal
+    ]
+
+    [   test.describe "tailrec builds list from 0 to 9"
+
+        [] 0
+        [10 =] [pop] [dup [swons] dip succ]
+        :tailrec
+        [9 8 7 6 5 4 3 2 1 0] expect-equal
+    ]
+
+    [   test.describe "tailrec preserves deeper stack items"
+
+        100 3
+        [0 =] ['done] [1 -]
+        :tailrec
+        'done expect-equal
+        0 expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "tailrec on empty stack raises JoyStackError"
+
+        [ tailrec ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "tailrec with missing quotations raises JoyStackError"
+
+        [ [0 =] tailrec ]
+        'JoyStackError
+        expect-raises
+
+        [ [0 =] ['done] tailrec ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "tailrec with non-list quotations raises JoyStackError"
+
+        [ 3 99 ['done] [1 -] :tailrec ]
+        'JoyStackError
+        expect-raises
+
+        [ 3 [0 =] 99 [1 -] :tailrec ]
+        'JoyStackError
+        expect-raises
+
+        [ 3 [0 =] ['done] 99 :tailrec ]
+        'JoyStackError
+        expect-raises
+    ]
+].

@@ -1,0 +1,135 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   apply quotation to each element of list, collecting results in new list
+#   category:   higher-order
+#   signature:  [xs]:list [body]:list -- [results]:list
+#   source:     standard-library (stdlib.joy)
+#
+[
+    [   test.describe "map applies quotation to each element"
+
+        [1 2 3]
+        [dup *]
+        :map
+        [1 4 9] expect-equal
+    ]
+
+    [   test.describe "map on empty list returns empty list"
+
+        []
+        [dup *]
+        :map
+        [] expect-equal
+    ]
+
+    [   test.describe "map on single element list"
+
+        [5]
+        [10 +]
+        :map
+        [15] expect-equal
+    ]
+
+    [   test.describe "map with identity quotation"
+
+        [1 2 3 4 5]
+        []
+        :map
+        [1 2 3 4 5] expect-equal
+    ]
+
+    [   test.describe "map doubles each element"
+
+        [1 2 3 4]
+        [2 *]
+        :map
+        [2 4 6 8] expect-equal
+    ]
+
+    [   test.describe "map with negation"
+
+        [1 -2 3 -4]
+        [neg]
+        :map
+        [-1 2 -3 4] expect-equal
+    ]
+
+    [   test.describe "map with absolute value"
+
+        [-3 -1 0 2 -5]
+        [abs]
+        :map
+        [3 1 0 2 5] expect-equal
+    ]
+
+    [   test.describe "map with complex transformation"
+
+        [1 2 3]
+        [dup * 1 +]
+        :map
+        [2 5 10] expect-equal
+    ]
+
+    [   test.describe "map preserves list order"
+
+        [5 4 3 2 1]
+        [1 +]
+        :map
+        [6 5 4 3 2] expect-equal
+    ]
+
+    [   test.describe "map with type conversion"
+
+        [1 2 3]
+        [succ]
+        :map
+        [2 3 4] expect-equal
+    ]
+
+    [   test.describe "map preserves deeper stack items"
+
+        100
+        [1 2 3]
+        [2 *]
+        :map
+        [2 4 6] expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "map nested lists"
+
+        [[1] [2 3] [4 5 6]]
+        [size]
+        :map
+        [1 2 3] expect-equal
+    ]
+
+    [   test.describe "map on empty stack raises JoyStackError"
+
+        [ map ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "map with missing quotation raises JoyStackError"
+
+        [ [1 2 3] map ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "map with non-list input raises JoyStackError"
+
+        [ 123 [dup] :map ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "map with non-list quotation raises JoyStackError"
+
+        [ [1 2 3] 99 :map ]
+        'JoyStackError
+        expect-raises
+    ]
+].
+

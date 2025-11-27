@@ -1,0 +1,93 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   execute program repeatedly while flag is true, program produces next flag
+#   category:   higher-order
+#   signature:  X.. flag:bool [program]:list -- Y..
+#   source:     standard-library (stdlib.joy)
+#
+[
+    [   test.describe "loop executes while flag is true"
+
+        # count down from 3 to 0
+        3
+        true [dup 1 - dup 0 >]
+        :loop
+        0 expect-equal
+    ]
+
+    [   test.describe "loop does not execute when flag is initially false"
+
+        42
+        false [pop 999]
+        :loop
+        42 expect-equal
+    ]
+
+    [   test.describe "loop accumulates values"
+
+        # sum numbers 1 to 3: start with 0 acc, 3 counter
+        0 3
+        true [dup rolldown + swap 1 - dup 0 >]
+        :loop
+        # stack should have: 0 (counter) 6 (sum)
+        0 expect-equal
+        6 expect-equal
+    ]
+
+    [   test.describe "loop with single iteration"
+
+        5
+        true [1 + false]
+        :loop
+        6 expect-equal
+    ]
+
+    [   test.describe "loop preserves deeper stack items"
+
+        100 5
+        true [1 - dup 3 >]
+        :loop
+        3 expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "loop factorial computation"
+
+        # compute 5! = 120
+        # stack: accumulator counter
+        1 5
+        true [dup rolldown * swap 1 - dup 0 >]
+        :loop
+        0 expect-equal
+        120 expect-equal
+    ]
+
+    [   test.describe "loop on empty stack raises JoyStackError"
+
+        [ loop ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "loop with missing program raises JoyStackError"
+
+        [ true loop ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "loop with non-boolean flag raises JoyStackError"
+
+        [ 5 [1 -] loop ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "loop with non-list program raises JoyStackError"
+
+        [ true 99 loop ]
+        'JoyStackError
+        expect-raises
+    ]
+].
+

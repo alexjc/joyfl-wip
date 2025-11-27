@@ -1,0 +1,141 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   linear recursion combinator with four quotations [if] [then] [rec1] [rec2]
+#   category:   higher-order
+#   signature:  X.. [if]:list [then]:list [rec1]:list [rec2]:list -- Y..
+#   source:     standard-library (stdlib.joy)
+#
+[
+    [   test.describe "linrec base case terminates immediately"
+
+        0
+        [null?] [succ] [dup pred] [*]
+        :linrec
+        1 expect-equal
+    ]
+
+    [   test.describe "linrec factorial of 5"
+
+        5
+        [null?] [succ] [dup pred] [*]
+        :linrec
+        120 expect-equal
+    ]
+
+    [   test.describe "linrec factorial of 1"
+
+        1
+        [null?] [succ] [dup pred] [*]
+        :linrec
+        1 expect-equal
+    ]
+
+    [   test.describe "linrec factorial of 10"
+
+        10
+        [null?] [succ] [dup pred] [*]
+        :linrec
+        3628800 expect-equal
+    ]
+
+    [   test.describe "linrec sum of list elements"
+
+        [1 2 3 4 5]
+        [null?] [pop 0] [uncons] [+]
+        :linrec
+        15 expect-equal
+    ]
+
+    [   test.describe "linrec sum of empty list"
+
+        []
+        [null?] [pop 0] [uncons] [+]
+        :linrec
+        0 expect-equal
+    ]
+
+    [   test.describe "linrec length of list"
+
+        ['a 'b 'c 'd 'e]
+        [null?] [pop 0] [rest] [succ]
+        :linrec
+        5 expect-equal
+    ]
+
+    [   test.describe "linrec length of empty list"
+
+        []
+        [null?] [pop 0] [rest] [succ]
+        :linrec
+        0 expect-equal
+    ]
+
+    [   test.describe "linrec preserves deeper stack items"
+
+        100
+        5
+        [null?] [succ] [dup pred] [*]
+        :linrec
+        120 expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "linrec with countdown pattern"
+
+        3
+        [0 =] [] [1 -] []
+        :linrec
+        0 expect-equal
+    ]
+
+    [   test.describe "linrec from-to-list 1 to 10"
+
+        1 10
+
+        # from-to-list defined inline
+        [] [] cons  [pop pop] swoncat [>] swap [ [dup succ] dip ] [cons] :linrec
+
+        [1 2 3 4 5 6 7 8 9 10] expect-equal
+    ]
+
+    [   test.describe "linrec on empty stack raises JoyStackError"
+
+        [ linrec ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "linrec with missing quotations raises JoyStackError"
+
+        [ [null?] linrec ]
+        'JoyStackError
+        expect-raises
+
+        [ [null?] [succ] linrec ]
+        'JoyStackError
+        expect-raises
+
+        [ [null?] [succ] [dup pred] linrec ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "linrec with non-list quotations raises JoyStackError"
+
+        [ 5 99 [succ] [dup pred] [*] :linrec ]
+        'JoyStackError
+        expect-raises
+
+        [ 5 [null?] 99 [dup pred] [*] :linrec ]
+        'JoyStackError
+        expect-raises
+
+        [ 5 [null?] [succ] 99 [*] :linrec ]
+        'JoyStackError
+        expect-raises
+
+        [ 5 [null?] [succ] [dup pred] 99 :linrec ]
+        'JoyStackError
+        expect-raises
+    ]
+].

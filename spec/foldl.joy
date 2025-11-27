@@ -1,0 +1,123 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   left fold reducing a list to single value using binary operation and initial accumulator
+#   category:   higher-order
+#   signature:  [xs]:list acc:any [op]:list -- result:any
+#   source:     standard-library (stdlib.joy)
+#
+[
+    [   test.describe "foldl sums list elements"
+
+        [1 2 3 4]
+        0
+        [+]
+        :foldl
+        10 expect-equal
+    ]
+
+    [   test.describe "foldl multiplies list elements"
+
+        [1 2 3 4 5]
+        1
+        [*]
+        :foldl
+        120 expect-equal
+    ]
+
+    [   test.describe "foldl on empty list returns accumulator"
+
+        []
+        42
+        [+]
+        :foldl
+        42 expect-equal
+    ]
+
+    [   test.describe "foldl on single element list"
+
+        [5]
+        10
+        [+]
+        :foldl
+        15 expect-equal
+    ]
+
+    [   test.describe "foldl maximum element"
+
+        [3 1 4 1 5 9 2 6]
+        0
+        [max]
+        :foldl
+        9 expect-equal
+    ]
+
+    [   test.describe "foldl minimum element"
+
+        [3 1 4 1 5 9 2 6]
+        999
+        [min]
+        :foldl
+        1 expect-equal
+    ]
+
+    [   test.describe "foldl count elements"
+
+        ['a 'b 'c 'd 'e]
+        0
+        [pop 1 +]
+        :foldl
+        5 expect-equal
+    ]
+
+    [   test.describe "foldl sum of squares"
+
+        [1 2 3]
+        0
+        [dup * +]
+        :foldl
+        14 expect-equal
+    ]
+
+    [   test.describe "foldl preserves deeper stack items"
+
+        100
+        [1 2 3]
+        0
+        [+]
+        :foldl
+        6 expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "foldl on empty stack raises JoyStackError"
+
+        [ foldl ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "foldl with missing arguments raises JoyStackError"
+
+        [ [1 2 3] foldl ]
+        'JoyStackError
+        expect-raises
+
+        [ [1 2 3] 0 foldl ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "foldl with non-list input raises JoyStackError"
+
+        [ 123 0 [+] :foldl ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "foldl with non-list operation raises JoyStackError"
+
+        [ [1 2 3] 0 99 :foldl ]
+        'JoyStackError
+        expect-raises
+    ]
+].

@@ -1,0 +1,99 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   execute body repeatedly as long as condition quotation returns true
+#   category:   higher-order
+#   signature:  X.. [cond]:list [body]:list -- Y..
+#   source:     standard-library (stdlib.joy)
+#
+[
+    [   test.describe "while executes body while condition is true"
+
+        0
+        [dup 3 <] [1 +]
+        :while
+        3 expect-equal
+    ]
+
+    [   test.describe "while does not execute when condition is initially false"
+
+        10
+        [dup 3 <] [1 +]
+        :while
+        10 expect-equal
+    ]
+
+    [   test.describe "while with countdown"
+
+        5
+        [dup 0 >] [1 -]
+        :while
+        0 expect-equal
+    ]
+
+    [   test.describe "while preserves deeper stack items"
+
+        100 0
+        [dup 3 <] [1 +]
+        :while
+        3 expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "while with accumulator pattern"
+
+        # sum 1 to 4: accumulator counter
+        0 4
+        [dup 0 >] [dup rolldown + swap 1 -]
+        :while
+        0 expect-equal
+        10 expect-equal
+    ]
+
+    [   test.describe "while factorial computation"
+
+        # compute 5! using while
+        1 5
+        [dup 1 >] [dup rolldown * swap 1 -]
+        :while
+        1 expect-equal
+        120 expect-equal
+    ]
+
+    [   test.describe "while with complex condition"
+
+        1
+        [dup dup * 100 <] [1 +]
+        :while
+        # first n where n^2 >= 100 is 10
+        10 expect-equal
+    ]
+
+    [   test.describe "while on empty stack raises JoyStackError"
+
+        [ while ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "while with missing body raises JoyStackError"
+
+        [ [dup 3 <] while ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "while with non-list condition raises JoyStackError"
+
+        [ 0 99 [1 +] :while ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "while with non-list body raises JoyStackError"
+
+        [ 0 [dup 3 <] 99 :while ]
+        'JoyStackError
+        expect-raises
+    ]
+].
+

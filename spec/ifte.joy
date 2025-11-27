@@ -1,0 +1,144 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   if/then/else combinator executing test in nullary context, then branching
+#   category:   higher-order
+#   signature:  X.. [test]:list [then]:list [else]:list -- Y..
+#   source:     standard-library (stdlib.joy)
+#
+[
+    [   test.describe "ifte executes then-quotation when test returns true"
+
+        10
+        [5 >] [99 +] [99 -]
+        :ifte
+        109 expect-equal
+    ]
+
+    [   test.describe "ifte executes else-quotation when test returns false"
+
+        3
+        [5 >] [99 +] [99 -]
+        :ifte
+        -96 expect-equal
+    ]
+
+    [   test.describe "ifte test is nullary - does not consume stack"
+
+        10
+        [5 >] [1 +] [1 -]
+        :ifte
+        # value 10 is preserved for then/else because test is nullary
+        11 expect-equal
+    ]
+
+    [   test.describe "ifte preserves deeper stack items"
+
+        100 10
+        [5 >] [1 +] [1 -]
+        :ifte
+        11 expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "ifte with equality test"
+
+        5
+        [5 =] ['yes] ['no]
+        :ifte
+        'yes expect-equal
+    ]
+
+    [   test.describe "ifte with complex test involving multiple stack items"
+
+        3 4
+        [<] [swap -] [+]
+        :ifte
+        # 3 < 4 is true, so swap - gives 4 - 3 = 1
+        1 expect-equal
+    ]
+
+    [   test.describe "ifte with null? test on lists"
+
+        []
+        [null?] ['empty] ['not-empty]
+        :ifte
+        'empty expect-equal
+
+        [1 2 3]
+        [null?] ['empty] ['not-empty]
+        :ifte
+        'not-empty expect-equal
+    ]
+
+    [   test.describe "ifte for factorial pattern"
+
+        5
+        [0 =] [pop 1] [dup 1 -]
+        :ifte
+        # 5 != 0, so dup 1 - gives 5 4
+        4 expect-equal
+        5 expect-equal
+
+        0
+        [0 =] [pop 1] [dup 1 -]
+        :ifte
+        # 0 = 0, so pop 1 gives 1
+        1 expect-equal
+    ]
+
+    [   test.describe "ifte with self-contained test quotation"
+
+        # Test quotation ignores stack, pushes 0, applies not → true
+        42
+        [0 not] [pop 'yes] [pop 'no]
+        :ifte
+        'yes expect-equal
+
+        # 1 not → false, so else branch taken
+        42
+        [1 not] [pop 'yes] [pop 'no]
+        :ifte
+        'no expect-equal
+    ]
+
+    [   test.describe "ifte on empty stack raises JoyStackError"
+
+        [ ifte ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "ifte with missing quotations raises JoyStackError"
+
+        [ [5 >] ifte ]
+        'JoyStackError
+        expect-raises
+
+        [ [5 >] [1 +] ifte ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "ifte with non-list test quotation raises JoyStackError"
+
+        [ 10 99 [1 +] [1 -] :ifte ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "ifte with non-list then quotation raises JoyStackError"
+
+        [ 10 [5 >] 99 [1 -] :ifte ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "ifte with non-list else quotation raises JoyStackError"
+
+        # Use condition that evaluates to false so else branch is taken
+        [ 3 [5 >] [1 +] 99 :ifte ]
+        'JoyStackError
+        expect-raises
+    ]
+].
+

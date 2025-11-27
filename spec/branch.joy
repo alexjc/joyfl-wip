@@ -1,0 +1,104 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+#
+#   overview:   select and execute one of two quotations based on a boolean flag
+#   category:   higher-order
+#   signature:  X.. flag:bool [then]:list [else]:list -- Y..
+#   source:     standard-library (stdlib.joy)
+#
+[
+    [   test.describe "branch executes then-quotation when flag is true"
+
+        5
+        true [1 +] [1 -]
+        :branch
+        6 expect-equal
+    ]
+
+    [   test.describe "branch executes else-quotation when flag is false"
+
+        5
+        false [1 +] [1 -]
+        :branch
+        4 expect-equal
+    ]
+
+    [   test.describe "branch preserves deeper stack items"
+
+        100 5
+        true [1 +] [1 -]
+        :branch
+        6 expect-equal
+        100 expect-equal
+    ]
+
+    [   test.describe "branch with complex quotations"
+
+        10 20
+        true [swap -] [+]
+        :branch
+        10 expect-equal
+    ]
+
+    [   test.describe "branch with empty then-quotation"
+
+        5
+        true [] [pop 0]
+        :branch
+        5 expect-equal
+    ]
+
+    [   test.describe "branch with empty else-quotation"
+
+        5
+        false [pop 0] []
+        :branch
+        5 expect-equal
+    ]
+
+    [   test.describe "branch with nested branches"
+
+        10
+        true
+            [true [1 +] [1 -] :branch]
+            [2 +]
+        :branch
+        11 expect-equal
+    ]
+
+    [   test.describe "branch on empty stack raises JoyStackError"
+
+        [ branch ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "branch with missing quotations raises JoyStackError"
+
+        [ true branch ]
+        'JoyStackError
+        expect-raises
+
+        [ true [1 +] branch ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "branch with non-list quotations raises JoyStackError"
+
+        [ true 1 2 branch ]
+        'JoyStackError
+        expect-raises
+
+        [ true [1 +] 2 branch ]
+        'JoyStackError
+        expect-raises
+    ]
+
+    [   test.describe "branch with non-boolean flag raises JoyStackError"
+
+        [ 5 [1 +] [1 -] branch ]
+        'JoyStackError
+        expect-raises
+    ]
+].
+
