@@ -34,7 +34,7 @@ def op_lte(b: num, a: num) -> bool: return b <= a
 ## BOOLEAN LOGIC
 def op_and(b: bool, a: bool) -> bool: return b and a
 def op_or(b: bool, a: bool) -> bool: return b or a
-def op_not(x: bool) -> bool: return not x
+def op_not(x: bool | int) -> bool: return not x
 def op_xor(b: Any, a: Any) -> Any: return b ^ a
 ## DATA & INTROSPECTION
 def op_null_q(x: Any) -> bool: return (len(x) if isinstance(x, (list, str)) else x) == 0
