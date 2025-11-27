@@ -1,14 +1,14 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
 from joyfl.runtime import Runtime
-from joyfl.types import StructInstance
+from joyfl.types import JoyStruct
 from joyfl.errors import JoyNameError, JoyStackError
 
 import pytest
 
 
 def test_struct_type_registration_from_typedef():
-    src = "MODULE m PUBLIC MyPair :: a b ; END."
+    src = "MODULE m PUBLIC MyPair :: a:int b:float ; END."
     rt = Runtime()
     rt.load(src, filename="<TEST>")
 
@@ -20,26 +20,26 @@ def test_struct_type_registration_from_typedef():
 
 
 def test_struct_roundtrip_runtime():
-    src = "MODULE m PUBLIC MyPair :: a b ; END."
+    src = "MODULE m PUBLIC MyPair :: a:bool b:str ; END."
     rt = Runtime()
     rt.load(src, filename="<TEST>")
 
-    stack = rt.run("1 2 'MyPair struct .", filename="<TEST>")
+    stack = rt.run("""true "text here" 'MyPair struct .""", filename="<TEST>")
     values = rt.from_stack(stack)
     assert len(values) == 1
     struct = values[0]
-    assert isinstance(struct, StructInstance)
+    assert isinstance(struct, JoyStruct)
     assert struct.typename == b"MyPair"
-    assert struct.fields == (1, 2)
+    assert struct.fields == (True, "text here")
 
-    stack = rt.run("1 2 'MyPair struct unstruct .", filename="<TEST>")
+    stack = rt.run("""false "more text" 'MyPair struct unstruct .""", filename="<TEST>")
     # Stack order is from top to bottom; original stack after `1 2` was [2, 1],
     # so struct/unstruct should behave as a no-op on the underlying stack.
-    assert rt.from_stack(stack) == [2, 1]
+    assert rt.from_stack(stack) == ["more text", False]
 
 
 def test_struct_type_with_stack_effect_field_registered_with_arity_and_metadata():
-    src = "MODULE m PUBLIC MyCompositeType :: a b (d -- e) ; END."
+    src = "MODULE m PUBLIC MyCompositeType :: a:int b:bool (d -- e) ; END."
     rt = Runtime()
     rt.load(src, filename="<TEST>")
 
@@ -70,7 +70,7 @@ def test_struct_unknown_type_raises_name_error():
 
 
 def test_struct_with_insufficient_fields_raises_stack_error():
-    src = "MODULE m PUBLIC MyPair :: a b ; END."
+    src = "MODULE m PUBLIC MyPair :: a:str b:float ; END."
     rt = Runtime()
     rt.load(src, filename="<TEST>")
 
@@ -80,7 +80,7 @@ def test_struct_with_insufficient_fields_raises_stack_error():
 
 
 def test_struct_with_non_symbol_top_raises_stack_error():
-    src = "MODULE m PUBLIC MyPair :: a b ; END."
+    src = "MODULE m PUBLIC MyPair :: a:float b:bool ; END."
     rt = Runtime()
     rt.load(src, filename="<TEST>")
 
@@ -108,7 +108,7 @@ def test_struct_type_enforced_in_stack_validation():
     MODULE m
     PUBLIC
         use-pair : (MyPair --) == pop ;
-        MyPair :: a b ;
+        MyPair :: a:symbol b:bool ;
     END.
     """
     rt = Runtime()
@@ -117,6 +117,6 @@ def test_struct_type_enforced_in_stack_validation():
     with pytest.raises(JoyStackError):
         rt.run("42 m.use-pair .", filename="<TEST>", validate=True)
 
-    stack = rt.run("1 2 'MyPair struct m.use-pair .", filename="<TEST>", validate=True)
+    stack = rt.run("'a false 'MyPair struct m.use-pair .", filename="<TEST>", validate=True)
     assert rt.from_stack(stack) == []
 

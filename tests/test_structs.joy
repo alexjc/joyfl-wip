@@ -1,0 +1,75 @@
+## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
+
+MODULE test-structs
+
+PUBLIC
+    Movie :: title:str director:str year:int success:bool ;
+    make-movie == "The Prestige" "Christopher Nolan" 2006 true 'Movie struct ;
+END.
+
+[
+    [   test.describe "struct getter title>> returns field value"
+
+            make-movie title>>
+            "The Prestige"
+        expect-equal
+    ]
+
+    [   test.describe "struct getter director>> returns field value"
+
+            make-movie director>>
+            "Christopher Nolan"
+        expect-equal
+    ]
+
+    [   test.describe "struct getter year>> returns field value"
+
+            make-movie year>>
+            2006
+        expect-equal
+    ]
+
+    [   test.describe "struct setter >>title updates field"
+
+            make-movie "Interstellar" >>title title>>
+            "Interstellar"
+        expect-equal
+    ]
+
+    [   test.describe "struct setter >>year updates field"
+
+            make-movie 2014 >>year year>>
+            2014
+        expect-equal
+    ]
+
+    [   test.describe "chained setters update multiple fields"
+
+        make-movie "Interstellar" >>title 2014 >>year
+
+            title>>
+            "Interstellar"
+        expect-equal
+
+            year>>
+            2014
+        expect-equal
+
+        pop
+    ]
+
+    [   test.describe "unstruct returns all field values"
+
+        make-movie unstruct
+
+            true
+        expect-equal
+            2006
+        expect-equal
+            "Christopher Nolan"
+        expect-equal
+            "The Prestige"
+        expect-equal
+    ]
+].
+

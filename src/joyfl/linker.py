@@ -3,9 +3,32 @@
 import ast
 from fractions import Fraction
 
-from .types import Operation, Quotation, StructMeta, TypeKey
+from .types import Operation, Quotation, StructMeta, JoyStruct, TypeKey, TYPE_NAME_MAP
 from .errors import JoyError, JoyNameError, JoyTypeDuplicate, JoyUnknownStruct
 from .library import Library
+
+
+def _register_struct_accessors(lib: Library, struct_type: StructMeta) -> None:
+    """Register Factor-style getter and setter functions for each labeled field."""
+
+    for idx, field in enumerate(struct_type.fields):
+        if (label := field["label"]) is None: continue
+
+        # Getter: fieldname>> (struct -- value)
+        def make_getter(field_idx: int, field_type: type):
+            def getter(instance): return (instance, instance[field_idx])
+            getter.__annotations__ = {'instance': JoyStruct, 'return': tuple[JoyStruct, field_type]}
+            return getter
+        lib.add_function(f"{label}>>", make_getter(idx, TYPE_NAME_MAP[field["type"]]))
+
+        # Setter: >>fieldname (struct value -- struct')
+        def make_setter(field_idx: int, field_type: type):
+            def setter(struct, value):
+                return type(struct)(*struct[:field_idx], value, *struct[field_idx+1:])
+            setter.__annotations__ = {'struct': JoyStruct, 'value': field_type, 'return': JoyStruct}
+            return setter
+
+        lib.add_function(f">>{label}", make_setter(idx, TYPE_NAME_MAP[field["type"]]))
 
 
 def _resolve_struct_types_in_signature(signature: dict, lib: Library, meta: dict) -> None:
@@ -153,6 +176,7 @@ def load_joy_library(export_lib: Library, sections: dict, filename: str, context
                         f"Struct type `{typename}` already registered, and shapes differ.",
                         joy_token=typename, joy_meta={"filename": filename})
                 export_lib.struct_types[type_key] = struct_type
+                _register_struct_accessors(export_lib, struct_type)
             case "quotation":
                 effect = type_meta["effect"]
                 existing = export_lib.quotations.get(typename)

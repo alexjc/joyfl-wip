@@ -2,12 +2,11 @@
 
 import os
 import sys
-import numbers
 import textwrap
 from typing import Any
 
 import lark
-from .types import Stack, TypeKey
+from .types import TypeKey, TYPE_NAME_MAP
 from .errors import JoyParseError, JoyIncompleteParse
 
 
@@ -71,17 +70,6 @@ NAME: /[^\s\[\]\\(\){\}\;\.\#\|A-Z](?:[A-Za-z0-9!+\-=<>_,?.]*[A-Za-z0-9!+\-=<>_,
 %ignore COMMENT
 %ignore MULTILINE_COMMENT
 """
-
-
-TYPE_NAME_MAP: dict[str, Any] = {
-    'int': int, 'integer': int, 'float': float, 'double': float,
-    'bool': bool, 'boolean': bool,
-    'str': str, 'string': str, 'text': str,
-    'number': numbers.Number,
-    'list': list, 'array': list, 'quot': list,
-    'stack': Stack,
-    'any': Any, '': Any,
-}
 
 
 def _type_key(name: str | None) -> str:

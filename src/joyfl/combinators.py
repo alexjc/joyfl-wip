@@ -2,9 +2,9 @@
 
 from typing import Any
 
-from .types import Operation, Stack, nil, StructInstance, TypeKey
+from .types import Operation, Stack, nil, JoyStruct, TypeKey, TYPE_NAME_MAP
 from .errors import JoyError, JoyStackError, JoyNameError
-from .parser import parse, TYPE_NAME_MAP
+from .parser import parse
 from .formatting import show_stack, stack_to_list
 from .interpreter import interpret
 
@@ -104,7 +104,7 @@ def _get_expected_python_type_for_field(field: dict):
     return TYPE_NAME_MAP.get(type_name, object)
 
 def comb_struct(this: Operation, queue, stack: Stack, lib):
-    """Construct a StructInstance from N field values and a type symbol on the stack.
+    """Construct a JoyStruct from N field values and a type symbol on the stack.
 
     Stack convention:
         - left field (first in typedef) = bottom of stack
@@ -137,28 +137,27 @@ def comb_struct(this: Operation, queue, stack: Stack, lib):
         fields.append(value)
 
     # Reverse to get fields in declaration order (left-to-right)
-    instance = StructInstance(typename=type_key, fields=tuple(reversed(fields)))
-    return Stack(current, instance)
+    return Stack(current, meta.instance_class(*reversed(fields)))
 
 
 def comb_unstruct(this: Operation, queue, stack: Stack, lib):
-    """Explode a StructInstance back into its fields on the stack."""
+    """Explode a JoyStruct back into its fields on the stack."""
 
     if stack is nil:
-        raise JoyStackError("`unstruct` expects a StructInstance value on top of the stack.", joy_op=this)
+        raise JoyStackError("`unstruct` expects a JoyStruct on top of the stack.", joy_op=this)
 
     base, top = stack
-    if not isinstance(top, StructInstance):
-        raise JoyStackError("`unstruct` expects a StructInstance value on top of the stack.", joy_op=this)
+    if not isinstance(top, JoyStruct):
+        raise JoyStackError(f"`unstruct` expects a JoyStruct, got {type(top).__name__}.", joy_op=this)
 
     type_key = top.typename
     if (meta := lib.struct_types.get(type_key)) is None:
         raise JoyNameError(f"Struct type {repr(type_key)[1:-1]} is not registered.", joy_op=this)
 
-    if len(top.fields) != meta.arity:
-        raise JoyStackError(f"`unstruct` encountered a StructInstance for {repr(type_key)[1:-1]} with {len(top.fields)} field(s), expected {meta.arity}.", joy_op=this)
+    if len(top) != meta.arity:
+        raise JoyStackError(f"`unstruct` for {repr(type_key)[1:-1]} has {len(top)} field(s), expected {meta.arity}.", joy_op=this)
 
     result = base
-    for value in top.fields:
+    for value in top: # namedtuple is iterable directly
         result = Stack(result, value)
     return result

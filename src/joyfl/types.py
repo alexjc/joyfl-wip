@@ -1,6 +1,8 @@
 ## joyfl — Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
 from typing import Any, Literal, TypeVar
+from numbers import Number
+from fractions import Fraction
 from collections import namedtuple
 from dataclasses import dataclass
 
@@ -44,6 +46,20 @@ class Stack(namedtuple('Stack', ['tail', 'head'])):
         for it in items:
             stack = Stack(stack, it)
         return stack
+
+
+TYPE_NAME_MAP: dict[str, Any] = {
+    'int': int, 'integer': int, 'float': float, 'double': float,
+    'bool': bool, 'boolean': bool,
+    'symbol': bytes, 'sym': bytes,
+    'str': str, 'string': str, 'text': str,
+    'number': Number,
+    'fraction': Fraction, 'fract': Fraction,
+    'list': list, 'array': list, 'quot': list,
+    'stack': Stack,
+    'any': Any, '': Any,
+}
+
 
 # All checks for empty stack must be done by comparing to this.
 nil = Stack(None, None)
@@ -93,31 +109,55 @@ class TypeKey(bytes):
         return self.decode("utf-8")
 
 
-@dataclass(frozen=True)
-class StructInstance:
-    """Runtime representation of a product type instance constructed via `struct`."""
-    typename: TypeKey            # Symbol name as emitted by `'MyStructType` literals.
-    fields: tuple[object, ...]   # Field values in left-to-right declaration order.
+class JoyStruct:
+    """Marker mixin for Joy struct instances. Provides .typename and .fields properties."""
+    _joy_typename: TypeKey
+
+    @property
+    def typename(self) -> TypeKey:
+        return type(self)._joy_typename
+
+    @property
+    def fields(self) -> tuple:
+        """Backwards-compatible access to field values as tuple."""
+        return tuple(self)
+
+
+# All concrete Joy value types. Use in Search.inputs to require resolved values.
+# Search placeholders are explicitly excluded — use Any if you need to match Search.
+Value = int | float | Fraction | bool | str | bytes | list | dict | JoyStruct | Operation
 
 
 class StructMeta(type):
     """Runtime type for Joy product structs; also carries TYPEDEF metadata.
 
     Each Joy `TYPEDEF` declaration is represented as a distinct Python class whose
-    instances are conceptually `StructInstance` values with a matching `typename`.
-    The class object itself exposes `.name`, `.arity` and `.fields` for use by
-    combinators such as `struct` and `unstruct`.
+    instances are namedtuples with named field access. The class object exposes
+    `.name`, `.arity`, `.fields`, and `.instance_class` for use by combinators.
     """
 
     name: TypeKey
     arity: int
     fields: tuple[dict, ...]
+    instance_class: type  # namedtuple subclass for this struct's values
 
     def __new__(mcls, name, bases, namespace, *, typename: TypeKey, fields: tuple[dict, ...]):
         cls = super().__new__(mcls, name, bases, namespace)
         cls.name = typename
         cls.arity = len(fields)
         cls.fields = tuple(fields)
+
+        # Create namedtuple instance class with field labels
+        labels = tuple(f.get("label") or f"field{i}" for i, f in enumerate(fields))
+        nt_base = namedtuple(f"{name}", labels, rename=True)
+
+        # Combine namedtuple with JoyStruct marker
+        class InstanceClass(nt_base, JoyStruct):
+            __slots__ = ()
+            _joy_typename = typename
+            _joy_field_defs = fields
+
+        cls.instance_class = InstanceClass
         return cls
 
     @classmethod
@@ -127,8 +167,8 @@ class StructMeta(type):
         return mcls(typename, (object,), {}, typename=type_key, fields=fields)
 
     def __instancecheck__(cls, instance):
-        # Treat any StructInstance tagged with this struct's name as an instance.
-        return isinstance(instance, StructInstance) and instance.typename == cls.name
+        # Check if instance was created via this struct's instance_class
+        return isinstance(instance, cls.instance_class)
 
 
 def validate_signature_inputs(expected: list[type], args: list[Any], name: str) -> tuple[bool, str]:
@@ -142,6 +182,10 @@ def validate_signature_inputs(expected: list[type], args: list[Any], name: str) 
     
     Returns:
         (True, "") if valid, (False, reason) if not.
+    
+    Note:
+        Use `Value` in expected types to match any concrete Joy value (excludes Search).
+        Use `Any` to match anything including Search placeholders.
     """
     if len(args) < len(expected):
         return False, f"`{name}` needs at least {len(expected)} item(s), but {len(args)} available."
