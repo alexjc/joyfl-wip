@@ -1,5 +1,7 @@
 ## Copyright © 2025, Alex J. Champandard.  Licensed under AGPLv3; see LICENSE! ⚘
 
+import math
+
 from . import operators
 from . import combinators as C
 from .loader import get_joy_name
@@ -18,7 +20,7 @@ def load_builtins_library():
         'unstruct': C.comb_unstruct,
     }
     quotations = {}
-    constants = {'true': True, 'false': False}
+    constants = {'true': True, 'false': False, 'pi': math.pi, 'tau': math.tau, 'e': math.e, 'inf': math.inf, 'nan': math.nan}
     factories = {}
     aliases = {
         '+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '//': 'idiv', '%': 'rem',

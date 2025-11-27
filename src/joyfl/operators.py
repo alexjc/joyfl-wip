@@ -24,6 +24,28 @@ def op_mul(b: num, a: num) -> num: return b * a
 def op_div(b: num, a: num) -> num: return b / a
 def op_idiv(b: num, a: num) -> int: return int(b // a)
 def op_rem(b: num, a: num) -> num: return b % a
+## TRIGONOMETRY & (PRE)CALCULUS
+def op_cos(x: num) -> float: return math.cos(x)
+def op_sin(x: num) -> float: return math.sin(x)
+def op_exp(x: num) -> float: return math.exp(x)
+def op_pow(b: num, a: num) -> float: return math.pow(b, a)
+def op_log(x: num) -> float: return math.log(x)
+def op_sqrt(x: num) -> float: return math.sqrt(x)
+def op_isqrt(x: int) -> int: return math.isqrt(x)
+def op_floor(x: num) -> int: return math.floor(x)
+def op_ceil(x: num) -> int: return math.ceil(x)
+def op_round(x: num) -> int: return round(x)
+def op_trunc(x: num) -> int: return math.trunc(x)
+def op_tan(x: num) -> float: return math.tan(x)
+def op_acos(x: num) -> float: return math.acos(x)
+def op_asin(x: num) -> float: return math.asin(x)
+def op_atan(x: num) -> float: return math.atan(x)
+def op_atan2(b: num, a: num) -> float: return math.atan2(b, a)
+def op_log10(x: num) -> float: return math.log10(x)
+def op_log2(x: num) -> float: return math.log2(x)
+def op_sinh(x: num) -> float: return math.sinh(x)
+def op_cosh(x: num) -> float: return math.cosh(x)
+def op_tanh(x: num) -> float: return math.tanh(x)
 ## COMPARATORS
 def op_equal_q(b: Any, a: Any) -> bool: return b == a
 def op_differ_q(b: Any, a: Any) -> bool: return b != a
