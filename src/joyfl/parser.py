@@ -136,13 +136,17 @@ def _stack_effect_to_meta(effect: dict | None) -> dict | None:
 def parse(source: str, start='start', filename=None):
     parser = lark.Lark(GRAMMAR, start=start, parser="lalr", lexer="contextual", propagate_positions=True)
 
-    def _param_entry(raw: str) -> dict:
+    def _get_param_entry(raw: str) -> dict:
         label, _, type_name = raw.partition(':')
         entry = {'label': label or None, 'type': None, 'quote': None, 'raw': raw, 'kind': 'value'}
-        if type_name:  # Explicit WORD:TYPE form.
+        if len(type_name) == 1 and type_name.isupper():
+            # Special case word:X as typevar, for consistensy with grammar.
+            entry['kind'] = 'typevar'
+            entry['type'] = type_name
+        elif type_name:  # Explicit word:TYPE form.
             assert label.lower() not in _TYPE_HINTS
             entry['type'] = type_name
-        else:  # Bare WORD, determine if type or label.
+        else:  # Bare `word` determine if type or label.
             if (lower := label.lower()) in _TYPE_HINTS:
                 entry['type'], entry['label'] = lower, None
                 entry['kind'] = 'type'
@@ -153,7 +157,7 @@ def parse(source: str, start='start', filename=None):
         # By grammar, a stack_atom always contains a single token: PARAM or TYPE_NAME.
         tok = next(ch for ch in atom.children if isinstance(ch, lark.Token))
         if tok.type == 'PARAM':
-            return _param_entry(tok.value)
+            return _get_param_entry(tok.value)
         if tok.type == 'TYPE_NAME':
             return {'label': None, 'type': tok.value, 'quote': None, 'raw': tok.value, 'kind': 'type'}
         if tok.type == 'TYPEVAR':
@@ -277,13 +281,13 @@ def parse(source: str, start='start', filename=None):
             for ch in body_node.children:
                 # Bare PARAMs become struct fields.
                 if isinstance(ch, lark.Token) and ch.type == 'PARAM':
-                    fields.append(_param_entry(ch.value))
+                    fields.append(_get_param_entry(ch.value))
                     continue
                 # Bracketed PARAMs represent list-valued fields with an inner element type.
                 if isinstance(ch, lark.Tree) and ch.data == 'list_param':
                     param_tok = next((t for t in ch.children if isinstance(t, lark.Token) and t.type == 'PARAM'), None)
                     if param_tok is None: continue
-                    inner = _param_entry(param_tok.value)
+                    inner = _get_param_entry(param_tok.value)
                     # Encode as a list type while preserving field label and inner type metadata.
                     fields.append({'label': inner['label'], 'type': 'list', 'quote': [inner], 'raw': None})
                     continue
@@ -302,7 +306,7 @@ def parse(source: str, start='start', filename=None):
                 params = [t for t in ctor_children if isinstance(t, lark.Token) and t.type == 'PARAM']
                 constructors.append({
                     'name': ctor_name.value if ctor_name is not None else None,
-                    'params': [_param_entry(p.value) for p in params],
+                    'params': [_get_param_entry(p.value) for p in params],
                 })
             return typename, {'kind': 'sum', 'constructors': constructors}
 
