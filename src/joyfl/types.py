@@ -176,9 +176,9 @@ def validate_signature_inputs(expected: list[type], args: list[Any], name: str) 
     and transformations (for Search).  The stack by convention, is left/bottom to right/top.
     
     Args:
-        expected: Expected types in Joy bottom-first order (left-to-right).
-        args:   Actual values in TOS-first order (args[0] = TOS).
-        name:   Name for error messages.
+        expected:   Expected types in conventional bottom-to-top.
+        args:       Actual values in bottom-to-top order.
+        name:       Name for error messages.
     
     Returns:
         (True, "") if valid, (False, reason) if not.
@@ -189,9 +189,8 @@ def validate_signature_inputs(expected: list[type], args: list[Any], name: str) 
     """
     if len(args) < len(expected):
         return False, f"`{name}` needs at least {len(expected)} item(s), but {len(args)} available."
-    
-    # Pair TOS-first args with reversed bottom-first expected types
-    for i, (actual, expected_type) in enumerate(zip(args, reversed(expected))):
+
+    for i, (actual, expected_type) in enumerate(zip(reversed(args), reversed(expected))):
         if isinstance(expected_type, TypeVar):
             expected_type = expected_type.__bound__
         if expected_type in (Any, None):

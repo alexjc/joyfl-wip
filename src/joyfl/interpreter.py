@@ -46,7 +46,7 @@ def can_execute(op: Operation, stack: Stack) -> tuple[bool, str]:
         if val == [] and sym.get('type') == 'Predicate':
             return False, f"`{op.name}` predicate cannot be empty, got []."
 
-    ok, msg = validate_signature_inputs(eff['inputs'], items, op.name)
+    ok, msg = validate_signature_inputs(eff['inputs'], list(reversed(items)), op.name)
     if not ok:
         return False, msg
 
